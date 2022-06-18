@@ -45,3 +45,5 @@ subdir('ausf')
 subdir('upf')
 subdir('smf')
 subdir('amf')
+
+subdir('scp')
