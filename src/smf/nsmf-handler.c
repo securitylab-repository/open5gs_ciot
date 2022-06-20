@@ -61,7 +61,11 @@ bool smf_nsmf_handle_create_sm_context(
      // added by boussad
     if (!SmContextCreateData->is_cp_ciot_enabled){
 
-       ogs_error("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind); 
+       ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind); 
+    }
+    else {
+
+     ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind);     
     }
 
     sNssai = SmContextCreateData->s_nssai;
