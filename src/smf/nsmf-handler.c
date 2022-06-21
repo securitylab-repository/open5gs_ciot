@@ -59,13 +59,14 @@ bool smf_nsmf_handle_create_sm_context(
     }
 
      // added by boussad
-    if (!SmContextCreateData->is_cp_ciot_enabled){
+     // edited by le linh
+    if (!SmContextCreateData->is_cp_ciot_enabled && !SmContextCreateData->is_cp_only_ind){
 
-       ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind); 
+        ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind); 
     }
     else {
-
-     ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind);     
+        ogs_info("is_cp_ciot_enabled: [%B] \n is_cp_only_ind: [%B] ");
+        ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] CIOT enabled",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind);     
     }
 
     sNssai = SmContextCreateData->s_nssai;
