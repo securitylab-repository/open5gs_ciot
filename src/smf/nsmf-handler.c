@@ -60,6 +60,7 @@ bool smf_nsmf_handle_create_sm_context(
 
      // added by boussad
      // edited by le linh
+    ogs_info("is_cp_ciot_enabled: %d \n is_cp_only_ind: %d", SmContextCreateData->is_cp_ciot_enabled, SmContextCreateData->is_cp_only_ind);
     if (!SmContextCreateData->is_cp_ciot_enabled && !SmContextCreateData->is_cp_only_ind){
 
         ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind); 
