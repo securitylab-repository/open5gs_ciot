@@ -58,6 +58,12 @@ ogs_sbi_request_t *amf_nsmf_pdusession_build_create_sm_context(
         ogs_sbi_build_plmn_id_nid(&amf_ue->nr_tai.plmn_id);
     ogs_expect_or_return_val(SmContextCreateData.serving_network, NULL);
 
+    //LE Linh
+    //enable cp context before pass to SMF
+    SmContextCreateData.is_cp_ciot_enabled = true;
+    SmContextCreateData.is_cp_only_ind = true;
+    
+
     SmContextCreateData.supi = amf_ue->supi;
     SmContextCreateData.pei = amf_ue->pei;
     if (amf_ue->num_of_msisdn) {
