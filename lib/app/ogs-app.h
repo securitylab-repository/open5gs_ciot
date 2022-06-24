@@ -94,6 +94,7 @@ void smf_terminate(void);
 int amf_initialize(void);
 void amf_terminate(void);
 
+// decleare header fuction - le linh
 int idsf_initialize(void);
 void idsf_terminate(void);
 

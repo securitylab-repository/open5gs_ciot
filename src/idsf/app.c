@@ -1,3 +1,7 @@
+/*
+    created by le linh
+    created based on smf/app.c
+*/
 #include "ogs-app.h"
 
 int app_initialize(const char *const argv[])
