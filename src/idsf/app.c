@@ -1,6 +1,6 @@
 /*
     created by le linh
-    created based on smf/app.c
+    created based on smf/app.c and amf/app.c
 */
 #include "ogs-app.h"
 
