@@ -9,6 +9,7 @@
 #include "ogs-app.h"
 #include "ogs-sbi.h"
 
+// need create
 #include "idsf-sm.h"
 #include "timer.h"
 
@@ -25,7 +26,7 @@ extern int __idsf_log_domain;
 
 typedef struct idsf_context_s {
     int dummy;
-} nrf_context_t;
+} idsf_context_t;
 
 // for notify NRF
 #define IDSF_NF_INSTANCE_CLEAR(_cAUSE, _nFInstance) \
