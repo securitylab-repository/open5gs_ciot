@@ -1,7 +1,9 @@
-/* created by le linh
+/* 
+    created by le linh
     based on similar component of amf,smf,pcf
     for interact with other function
 */
+
 #include "sbi-path.h"
 
 static ogs_thread_t *thread;
