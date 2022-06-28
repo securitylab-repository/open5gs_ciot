@@ -14,7 +14,7 @@ int idsf_initialize()
 
     ogs_sbi_context_init();
 
-    // under construction - context.c 
+    // need definition - context.c 
     idsf_context_init();
     idsf_event_init();
 
@@ -64,7 +64,7 @@ static void event_termination(void)
     ogs_pollset_notify(ogs_app()->pollset);
 }
 
-// created from pcf/init.c
+// based from pcf/init.c
 void idsf_terminate(void)
 {
     if (!initialized) return;
@@ -76,8 +76,6 @@ void idsf_terminate(void)
 
     //need creation
     idsf_sbi_close();
-
-    ogs_dbi_final();
 
     //need creation
     idsf_context_final();
