@@ -116,10 +116,10 @@ void idsf_state_operational(ogs_fsm_t *s, idsf_event_t *e)
             ogs_assert(OGS_FSM_STATE(&nf_instance->sm));
 
             ogs_fsm_dispatch(&nf_instance->sm, e);
-            if (OGS_FSM_CHECK(&nf_instance->sm, ausf_nf_state_exception))
+            if (OGS_FSM_CHECK(&nf_instance->sm, idsf_nf_state_exception))
                 ogs_error("[%s:%s] State machine exception [%d]",
                         OpenAPI_nf_type_ToString(nf_instance->nf_type),
-                        nf_instance->id, e->timer_id)
+                        nf_instance->id, e->timer_id);
             break;
 
         case IDSF_TIMER_SUBSCRIPTION_VALIDITY:
