@@ -9,7 +9,7 @@
 #include "ogs-app.h"
 #include "ogs-sbi.h"
 
-// need create
+// is sm short for session management or session main ?
 #include "idsf-sm.h"
 #include "timer.h"
 
