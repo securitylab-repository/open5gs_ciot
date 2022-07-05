@@ -23,3 +23,4 @@ void app_terminate(void)
 {
     idsf_terminate();
     ogs_info("IDSF terminate...done");
+}

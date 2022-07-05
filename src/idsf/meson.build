@@ -1,7 +1,5 @@
-/* 
-    created by le linh
-    based on pcf,ausf
-*/
+# created by le linh
+# based on pcf,ausf
 
 libidsf_sources = files('''
     context.c
@@ -19,7 +17,7 @@ libidsf_sources = files('''
 '''.split())
 
 libidsf = static_library('idsf',
-    sources : libidsfsf_sources,
+    sources : libidsf_sources,
     dependencies : [libapp_dep,
                     libsbi_dep],
     install : false)
