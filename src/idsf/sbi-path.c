@@ -64,7 +64,7 @@ int idsf_sbi_open(void)
     nf_instance = ogs_sbi_self()->nf_instance;
     ogs_assert(nf_instance);
 
-    /* Build NF instance information. It will be transmitted to NRF. */
+    /* Build NF instance information. It will be transmitted to NRF. openAPI nf_type.h */
     ogs_sbi_nf_instance_build_default(nf_instance, OpenAPI_nf_type_IDSF);
     // for interact with other NF
     //ogs_sbi_nf_instance_add_allowed_nf_type(nf_instance, OpenAPI_nf_type_AMF);

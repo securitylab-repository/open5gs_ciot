@@ -1,6 +1,7 @@
 /*
     created by le linh
     created based on smf/app.c and amf/app.c
+    Intrusion Detection System as Funtion (IDSF)
 */
 #include "ogs-app.h"
 

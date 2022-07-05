@@ -16,29 +16,29 @@ int idsf_initialize()
 
     ogs_sbi_context_init();
 
-    // need definition - context.c 
+    // context.c
     idsf_context_init();
+    // event.c
     idsf_event_init();
 
-    //announce nrf
+    //announce nrf - need check
     rv = ogs_sbi_context_parse_config("idsf", "nrf");
     if (rv != OGS_OK) return rv;
     
+    // YAML config file
     rv = idsf_context_parse_config();
     if (rv != OGS_OK) return rv;
-    // under construction 
 
     rv = ogs_log_config_domain(
             ogs_app()->logger.domain, ogs_app()->logger.level);
     if (rv != OGS_OK) return rv;
 
-    // underconstruction
+    // sbi-path.c
     rv = idsf_sbi_open();
     if (rv != OGS_OK) return rv;
 
     thread = ogs_thread_create(idsf_main, NULL);
     if (!thread) return OGS_ERROR;
-    // underconstruction
 
     initialized = 1;
 
@@ -51,7 +51,7 @@ static void event_termination(void)
 {
     ogs_sbi_nf_instance_t *nf_instance = NULL;
 
-    /* Sending NF Instance De-registeration to NRF */
+    /* Sending NF Instance De-registeration to NRF - nf-sm.c*/
     ogs_list_for_each(&ogs_sbi_self()->nf_instance_list, nf_instance)
         idsf_nf_fsm_fini(nf_instance);
 
@@ -76,14 +76,14 @@ void idsf_terminate(void)
     ogs_thread_destroy(thread);
     ogs_timer_delete(t_termination_holding);
 
-    //need creation
+    //sbi-path.c
     idsf_sbi_close();
 
-    //need creation
+    // context.c
     idsf_context_final();
     ogs_sbi_context_final();
 
-    //need creation
+    // event.c
     idsf_event_final(); /* Destroy event */
 }
 
@@ -93,7 +93,7 @@ static void idsf_main(void *data)
     ogs_fsm_t idsf_sm;
     int rv;
 
-    //need creation for param
+    // idsf-sm.c
     ogs_fsm_create(&idsf_sm, idsf_state_initial, idsf_state_final);
     ogs_fsm_init(&idsf_sm, 0);
 
@@ -128,6 +128,7 @@ static void idsf_main(void *data)
 
             ogs_assert(e);
             ogs_fsm_dispatch(&idsf_sm, e);
+            // need creation in event.c
             idsf_event_free(e);
         }
     }
