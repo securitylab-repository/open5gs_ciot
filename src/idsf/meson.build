@@ -13,7 +13,7 @@ libidsf_sources = files('''
     nf-sm.c
 
     sbi-path.c
-    ausf-sm.c
+    idsf-sm.c
 
     init.c
 '''.split())
