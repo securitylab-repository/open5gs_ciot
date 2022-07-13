@@ -57,8 +57,13 @@ void idsf_nf_state_initial(ogs_fsm_t *s, idsf_event_t *e)
     nf_instance->t_no_heartbeat->cb = idsf_timer_nf_instance_no_heartbeat;
     ogs_assert(nf_instance->t_validity);
     nf_instance->t_validity->cb = idsf_timer_nf_instance_validity;
-    
+
     ogs_info("IDSF_EVT_SBI_CLIENT --> %d", nf_instance->nf_type);
+    
+    ogs_info("[%s] is NRF ? [%d]",
+                    ogs_sbi_self()->nf_instance->id,
+                    NF_INSTANCE_IS_NRF(nf_instance));
+                    
     if (NF_INSTANCE_IS_NRF(nf_instance)) {
         OGS_FSM_TRAN(s, &idsf_nf_state_will_register);
     } else {
