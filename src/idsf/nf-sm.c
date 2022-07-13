@@ -224,6 +224,8 @@ void idsf_nf_state_registered(ogs_fsm_t *s, idsf_event_t *e)
         break;
 
     case IDSF_EVT_SBI_CLIENT:
+        ogs_info("[%s] IDSF event sbi client",
+                    ogs_sbi_self()->nf_instance->id);
         message = e->sbi.message;
         ogs_assert(message);
 
