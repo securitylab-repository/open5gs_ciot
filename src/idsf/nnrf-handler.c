@@ -77,7 +77,7 @@ void idsf_nnrf_handle_nf_status_subscribe(
 bool idsf_nnrf_handle_nf_status_notify(
         ogs_sbi_stream_t *stream, ogs_sbi_message_t *recvmsg)
 {
-     int rv;
+    int rv;
     bool handled;
 
     ogs_sbi_response_t *response = NULL;
@@ -138,6 +138,9 @@ bool idsf_nnrf_handle_nf_status_notify(
         ogs_sbi_header_free(&header);
         return false;
     }
+
+    ogs_info("[%s] IDSF receive NRF a status notify [%d]",
+                nf_instance->id,NotificationData->event );
 
     if (NotificationData->event ==
             OpenAPI_notification_event_type_NF_REGISTERED) {
