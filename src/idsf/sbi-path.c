@@ -113,6 +113,8 @@ bool idsf_nnrf_nfm_send_nf_register(ogs_sbi_nf_instance_t *nf_instance)
     request = idsf_nnrf_nfm_build_register();
     ogs_expect_or_return_val(request, false);
 
+    ogs_info("IDSF N NRF request built");
+
     return ogs_sbi_client_send_request(
             client, client->cb, request, nf_instance);
 }
