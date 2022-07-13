@@ -92,7 +92,7 @@ void idsf_nf_state_will_register(ogs_fsm_t *s, idsf_event_t *e)
 
     idsf_sm_debug(e);
 
-    ogs_info("event -- id ",e->id);
+    ogs_info("event -- id [%s]",e->id);
 
     nf_instance = e->sbi.data;
     ogs_assert(nf_instance);
