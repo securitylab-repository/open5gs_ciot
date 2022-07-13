@@ -73,6 +73,61 @@ void idsf_state_operational(ogs_fsm_t *s, idsf_event_t *e)
             break;
         }
 
+        SWITCH(message.h.service.name)
+        CASE(OGS_SBI_SERVICE_NAME_NNRF_NFM)
+
+            SWITCH(message.h.resource.component[0])
+            CASE(OGS_SBI_RESOURCE_NAME_NF_STATUS_NOTIFY)
+                SWITCH(message.h.method)
+                CASE(OGS_SBI_HTTP_METHOD_POST)
+                    idsf_nnrf_handle_nf_status_notify(stream, &message);
+                    break;
+
+                DEFAULT
+                    ogs_error("Invalid HTTP method [%s]",
+                            message.h.method);
+                    ogs_assert(true ==
+                        ogs_sbi_server_send_error(stream,
+                            OGS_SBI_HTTP_STATUS_FORBIDDEN,
+                            &message,
+                            "Invalid HTTP method", message.h.method));
+                END
+                break;
+
+            DEFAULT
+                ogs_error("Invalid resource name [%s]",
+                        message.h.resource.component[0]);
+                ogs_assert(true ==
+                    ogs_sbi_server_send_error(stream,
+                        OGS_SBI_HTTP_STATUS_BAD_REQUEST, &message,
+                        "Unknown resource name",
+                        message.h.resource.component[0]));
+            END
+            break;
+        
+        CASE(OGS_SBI_SERVICE_NAME_NIDSF_DETECT)
+            SWITCH(message.h.method)
+            CASE(OGS_SBI_HTTP_METHOD_POST)
+                // do something when received POST message from client
+                break;
+            CASE(OGS_SBI_HTTP_METHOD_PUT)
+                // do something when received PUT message from client
+                break;
+            DEFAULT
+            END
+
+            // Completion of service
+            break;
+        
+        DEFAULT
+            ogs_error("Invalid API name [%s]", message.h.service.name);
+            ogs_assert(true ==
+                ogs_sbi_server_send_error(stream,
+                    OGS_SBI_HTTP_STATUS_BAD_REQUEST, &message,
+                    "Invalid API name", message.h.resource.component[0]));
+        END
+
+        /* In lib/sbi/server.c, notify_completed() releases 'request' buffer. */
         ogs_sbi_message_free(&message);
 
         break;
@@ -97,6 +152,96 @@ void idsf_state_operational(ogs_fsm_t *s, idsf_event_t *e)
             ogs_sbi_response_free(response);
             break;
         }
+
+        SWITCH(message.h.service.name)
+        CASE(OGS_SBI_SERVICE_NAME_NNRF_NFM)
+
+            SWITCH(message.h.resource.component[0])
+            CASE(OGS_SBI_RESOURCE_NAME_NF_INSTANCES)
+                nf_instance = e->sbi.data;
+                ogs_assert(nf_instance);
+                ogs_assert(OGS_FSM_STATE(&nf_instance->sm));
+
+                e->sbi.message = &message;
+                ogs_fsm_dispatch(&nf_instance->sm, e);
+                break;
+            
+            CASE(OGS_SBI_RESOURCE_NAME_SUBSCRIPTIONS)
+                subscription = e->sbi.data;
+                ogs_assert(subscription);
+
+                SWITCH(message.h.method)
+                CASE(OGS_SBI_HTTP_METHOD_POST)
+                    if (message.res_status == OGS_SBI_HTTP_STATUS_CREATED ||
+                        message.res_status == OGS_SBI_HTTP_STATUS_OK) {
+                        idsf_nnrf_handle_nf_status_subscribe(
+                                subscription, &message);
+                    } else {
+                        ogs_error("[%s] HTTP response error [%d]",
+                                subscription->id, message.res_status);
+                    }
+                    break;
+                
+                CASE(OGS_SBI_HTTP_METHOD_DELETE)
+                    if (message.res_status ==
+                            OGS_SBI_HTTP_STATUS_NO_CONTENT) {
+                        ogs_sbi_subscription_remove(subscription);
+                    } else {
+                        ogs_error("[%s] HTTP response error [%d]",
+                                subscription->id, message.res_status);
+                    }
+                    break;
+
+                DEFAULT
+                    ogs_error("[%s] Invalid HTTP method [%s]",
+                            subscription->id, message.h.method);
+                    ogs_assert_if_reached();
+                END
+                break;
+
+            DEFAULT
+                ogs_error("Invalid resource name [%s]",
+                        message.h.resource.component[0]);
+                ogs_assert_if_reached();
+            END
+            break;
+        
+        CASE(OGS_SBI_SERVICE_NAME_NNRF_DISC)
+            SWITCH(message.h.resource.component[0])
+            CASE(OGS_SBI_RESOURCE_NAME_NF_INSTANCES)
+                sbi_xact = e->sbi.data;
+                ogs_assert(sbi_xact);
+
+                SWITCH(message.h.method)
+                CASE(OGS_SBI_HTTP_METHOD_GET)
+                    if (message.res_status == OGS_SBI_HTTP_STATUS_OK)
+                        idsf_nnrf_handle_nf_discover(sbi_xact, &message);
+                    else
+                        ogs_error("HTTP response error [%d]",
+                                message.res_status);
+                    break;
+
+                DEFAULT
+                    ogs_error("Invalid HTTP method [%s]", message.h.method);
+                    ogs_assert_if_reached();
+                END
+                break;
+            
+            DEFAULT
+                ogs_error("Invalid resource name [%s]",
+                        message.h.resource.component[0]);
+                ogs_assert_if_reached();
+            END
+            break;
+        
+        CASE(OGS_SBI_SERVICE_NAME_NUDM_UEAU)
+            // action as client when interacting with other NF API (ex. UDM)
+            break;
+
+        DEFAULT
+            ogs_error("Invalid API name [%s]", message.h.service.name);
+            ogs_assert_if_reached();
+        END
 
         ogs_sbi_message_free(&message);
         ogs_sbi_response_free(response);
