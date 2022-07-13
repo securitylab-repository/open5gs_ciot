@@ -99,7 +99,8 @@ void idsf_nf_state_will_register(ogs_fsm_t *s, idsf_event_t *e)
         ogs_timer_start(nf_instance->t_registration_interval,
             ogs_app()->time.message.sbi.nf_register_interval);
 
-        ogs_info("[%s] 1st registration with NRF", nf_instance->id);
+        ogs_info("[%s] 1st registration with NRF",
+                    ogs_sbi_self()->nf_instance->id);
 
         ogs_assert(true == idsf_nnrf_nfm_send_nf_register(nf_instance));
         break;
