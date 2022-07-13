@@ -58,7 +58,7 @@ void idsf_nf_state_initial(ogs_fsm_t *s, idsf_event_t *e)
     ogs_assert(nf_instance->t_validity);
     nf_instance->t_validity->cb = idsf_timer_nf_instance_validity;
     
-    ogs_info("IDSF_EVT_SBI_CLIENT --> %d", nf_instance->nf_type) ;
+    ogs_info("IDSF_EVT_SBI_CLIENT --> %d", NF_INSTANCE_IS_NRF(nf_instance)) ;
     if (NF_INSTANCE_IS_NRF(nf_instance)) {
         OGS_FSM_TRAN(s, &idsf_nf_state_will_register);
     } else {
@@ -98,6 +98,8 @@ void idsf_nf_state_will_register(ogs_fsm_t *s, idsf_event_t *e)
     case OGS_FSM_ENTRY_SIG:
         ogs_timer_start(nf_instance->t_registration_interval,
             ogs_app()->time.message.sbi.nf_register_interval);
+
+        ogs_info("[%s] 1st registration with NRF", nf_instance->id);
 
         ogs_assert(true == idsf_nnrf_nfm_send_nf_register(nf_instance));
         break;
