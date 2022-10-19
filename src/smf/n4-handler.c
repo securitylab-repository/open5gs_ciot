@@ -18,7 +18,6 @@
  */
 
 #include "context.h"
-#include "timer.h"
 #include "s5c-build.h"
 #include "pfcp-path.h"
 #include "gtp-path.h"
@@ -280,7 +279,7 @@ void smf_5gc_n4_handle_session_modification_response(
     status = OGS_SBI_HTTP_STATUS_OK;
 
     if (!sess) {
-        ogs_warn("No Context");
+        ogs_error("No Context");
         status = OGS_SBI_HTTP_STATUS_NOT_FOUND;
     }
 
@@ -401,7 +400,14 @@ void smf_5gc_n4_handle_session_modification_response(
 
         } else {
             sess->paging.ue_requested_pdu_session_establishment_done = true;
-            ogs_assert(true == ogs_sbi_send_http_status_no_content(stream));
+
+            if (sess->up_cnx_state == OpenAPI_up_cnx_state_ACTIVATING) {
+                sess->up_cnx_state = OpenAPI_up_cnx_state_ACTIVATED;
+                smf_sbi_send_sm_context_updated_data_up_cnx_state(
+                        sess, stream, OpenAPI_up_cnx_state_ACTIVATED);
+            } else {
+                ogs_assert(true == ogs_sbi_send_http_status_no_content(stream));
+            }
         }
 
     } else if (flags & OGS_PFCP_MODIFY_DEACTIVATE) {
@@ -624,10 +630,7 @@ int smf_5gc_n4_handle_session_deletion_response(
 
     status = OGS_SBI_HTTP_STATUS_OK;
 
-    if (!sess) {
-        ogs_warn("No Context");
-        status = OGS_SBI_HTTP_STATUS_NOT_FOUND;
-    }
+    ogs_assert(sess);
 
     if (rsp->cause.presence) {
         if (rsp->cause.u8 != OGS_PFCP_CAUSE_REQUEST_ACCEPTED) {
@@ -668,8 +671,6 @@ int smf_5gc_n4_handle_session_deletion_response(
         ogs_free(strerror);
         return status;
     }
-
-    ogs_assert(sess);
 
     return status;
 }
@@ -1062,7 +1063,7 @@ uint8_t smf_epc_n4_handle_session_deletion_response(
         return OGS_PFCP_CAUSE_MANDATORY_IE_MISSING;
     }
     if (rsp->cause.u8 != OGS_PFCP_CAUSE_REQUEST_ACCEPTED) {
-            ogs_warn("PFCP Cause[%d] : Not Accepted", rsp->cause.u8);
+            ogs_warn("PFCP Cause [%d] : Not Accepted", rsp->cause.u8);
             return rsp->cause.u8;
     }
 
@@ -1116,19 +1117,19 @@ void smf_n4_handle_session_report_request(
 
     ogs_debug("Session Report Request");
 
-    cause_value = OGS_GTP2_CAUSE_REQUEST_ACCEPTED;
+    cause_value = OGS_PFCP_CAUSE_REQUEST_ACCEPTED;
 
     if (!sess) {
-        ogs_warn("No Context");
+        ogs_error("No Context");
         cause_value = OGS_PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND;
     }
 
     if (pfcp_req->report_type.presence == 0) {
         ogs_error("No Report Type");
-        cause_value = OGS_GTP2_CAUSE_MANDATORY_IE_MISSING;
+        cause_value = OGS_PFCP_CAUSE_MANDATORY_IE_MISSING;
     }
 
-    if (cause_value != OGS_GTP2_CAUSE_REQUEST_ACCEPTED) {
+    if (cause_value != OGS_PFCP_CAUSE_REQUEST_ACCEPTED) {
         ogs_pfcp_send_error_message(pfcp_xact, 0,
                 OGS_PFCP_SESSION_REPORT_RESPONSE_TYPE,
                 cause_value, 0);
@@ -1167,14 +1168,19 @@ void smf_n4_handle_session_report_request(
                                 "Paging Policy Indication Value");
                         ogs_pfcp_send_error_message(pfcp_xact, 0,
                                 OGS_PFCP_SESSION_REPORT_RESPONSE_TYPE,
-                                OGS_GTP2_CAUSE_SERVICE_NOT_SUPPORTED, 0);
+                                OGS_PFCP_CAUSE_SERVICE_NOT_SUPPORTED, 0);
                         return;
                     }
 
                     if (qfi) {
                         qos_flow = smf_qos_flow_find_by_qfi(sess, qfi);
-                        if (!qos_flow)
+                        if (!qos_flow) {
                             ogs_error("Cannot find the QoS Flow[%d]", qfi);
+                            ogs_pfcp_send_error_message(pfcp_xact, 0,
+                                OGS_PFCP_SESSION_REPORT_RESPONSE_TYPE,
+                                OGS_PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND, 0);
+                            return;
+                        }
                     }
                 } else {
                     ogs_error("No Info");
@@ -1186,7 +1192,6 @@ void smf_n4_handle_session_report_request(
                     pfcp_req->downlink_data_report.pdr_id.u16);
                 if (!pdr)
                     ogs_error("Cannot find the PDR-ID[%d]", pdr_id);
-
             } else {
                 ogs_error("No PDR-ID");
             }
@@ -1194,11 +1199,11 @@ void smf_n4_handle_session_report_request(
             ogs_error("No Downlink Data Report");
         }
 
-        if (!pdr || !qos_flow) {
-            ogs_error("No Context [%p:%p]", pdr, qos_flow);
+        if (!pdr) {
+            ogs_error("No Context");
             ogs_pfcp_send_error_message(pfcp_xact, 0,
                     OGS_PFCP_SESSION_REPORT_RESPONSE_TYPE,
-                    cause_value, 0);
+                    OGS_PFCP_CAUSE_SESSION_CONTEXT_NOT_FOUND, 0);
             return;
         }
 

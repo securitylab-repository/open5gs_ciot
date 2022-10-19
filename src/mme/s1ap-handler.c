@@ -61,7 +61,7 @@ static bool maximum_number_of_enbs_is_reached(void)
         }
     }
 
-    return number_of_enbs_online >= ogs_app()->max.gnb;
+    return number_of_enbs_online >= ogs_app()->max.peer;
 }
 
 void s1ap_handle_s1_setup_request(mme_enb_t *enb, ogs_s1ap_message_t *message)
@@ -258,7 +258,13 @@ void s1ap_handle_initial_ue_message(mme_enb_t *enb, ogs_s1ap_message_t *message)
     enb_ue = enb_ue_find_by_enb_ue_s1ap_id(enb, *ENB_UE_S1AP_ID);
     if (!enb_ue) {
         enb_ue = enb_ue_add(enb, *ENB_UE_S1AP_ID);
-        ogs_assert(enb_ue);
+        if (enb_ue == NULL) {
+            ogs_assert(OGS_OK ==
+                s1ap_send_error_indication(enb, NULL, NULL,
+                    S1AP_Cause_PR_misc,
+                    S1AP_CauseMisc_control_processing_overload));
+            return;
+        }
 
         /* Find MME_UE if S_TMSI included */
         if (S_TMSI) {
@@ -511,6 +517,7 @@ void s1ap_handle_uplink_nas_transport(
 
         memcpy(&mme_ue->tai, &enb_ue->saved.tai, sizeof(ogs_eps_tai_t));
         memcpy(&mme_ue->e_cgi, &enb_ue->saved.e_cgi, sizeof(ogs_e_cgi_t));
+        mme_ue->ue_location_timestamp = ogs_time_now();
     } else {
         ogs_fatal("No UE Context in UplinkNASTransport");
         ogs_assert_if_reached();
@@ -764,15 +771,8 @@ void s1ap_handle_initial_context_setup_response(
         }
     }
 
-    if (mme_ue->nas_eps.type != MME_EPS_TYPE_ATTACH_REQUEST)
-        mme_send_after_paging(mme_ue, OGS_GTP2_CAUSE_REQUEST_ACCEPTED);
-
-    if (SMS_SERVICE_INDICATOR(mme_ue)) {
-        ogs_assert(OGS_OK ==
-            sgsap_send_service_request(mme_ue, SGSAP_EMM_CONNECTED_MODE));
-    }
-
-    CLEAR_SERVICE_INDICATOR(mme_ue);
+    if (MME_PAGING_ONGOING(mme_ue))
+        mme_send_after_paging(mme_ue, false);
 }
 
 void s1ap_handle_initial_context_setup_failure(
@@ -1904,6 +1904,7 @@ void s1ap_handle_path_switch_request(
     mme_ue->enb_ostream_id = enb_ue->enb_ostream_id;
     memcpy(&mme_ue->tai, &enb_ue->saved.tai, sizeof(ogs_eps_tai_t));
     memcpy(&mme_ue->e_cgi, &enb_ue->saved.e_cgi, sizeof(ogs_e_cgi_t));
+    mme_ue->ue_location_timestamp = ogs_time_now();
 
     ogs_assert(UESecurityCapabilities);
     encryptionAlgorithms =
@@ -2946,6 +2947,7 @@ void s1ap_handle_handover_notification(
     mme_ue->enb_ostream_id = target_ue->enb_ostream_id;
     memcpy(&mme_ue->tai, &target_ue->saved.tai, sizeof(ogs_eps_tai_t));
     memcpy(&mme_ue->e_cgi, &target_ue->saved.e_cgi, sizeof(ogs_e_cgi_t));
+    mme_ue->ue_location_timestamp = ogs_time_now();
 
     ogs_assert(OGS_OK ==
         s1ap_send_ue_context_release_command(source_ue,

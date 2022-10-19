@@ -37,6 +37,10 @@ typedef struct ogs_mongoc_s {
     void *client;
     void *database;
 
+#if MONGOC_MAJOR_VERSION >= 1 && MONGOC_MINOR_VERSION >= 9
+    mongoc_change_stream_t *stream;
+#endif
+
     char *masked_db_uri;
 
     struct {
@@ -50,6 +54,9 @@ ogs_mongoc_t *ogs_mongoc(void);
 
 int ogs_dbi_init(const char *db_uri);
 void ogs_dbi_final(void);
+
+int ogs_dbi_collection_watch_init(void);
+int ogs_dbi_poll_change_stream(void);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019,2020 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -117,6 +117,10 @@ int pcf_context_parse_config(void)
                 ogs_assert(pcf_key);
                 if (!strcmp(pcf_key, "sbi")) {
                     /* handle config in sbi library */
+                } else if (!strcmp(pcf_key, "service_name")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(pcf_key, "discovery")) {
+                    /* handle config in sbi library */
                 } else
                     ogs_warn("unknown key `%s`", pcf_key);
             }
@@ -157,8 +161,7 @@ pcf_ue_t *pcf_ue_add(char *supi)
 
     memset(&e, 0, sizeof(e));
     e.pcf_ue = pcf_ue;
-    ogs_fsm_create(&pcf_ue->sm, pcf_am_state_initial, pcf_am_state_final);
-    ogs_fsm_init(&pcf_ue->sm, &e);
+    ogs_fsm_init(&pcf_ue->sm, pcf_am_state_initial, pcf_am_state_final, &e);
 
     ogs_list_add(&self.pcf_ue_list, pcf_ue);
 
@@ -176,7 +179,6 @@ void pcf_ue_remove(pcf_ue_t *pcf_ue)
     memset(&e, 0, sizeof(e));
     e.pcf_ue = pcf_ue;
     ogs_fsm_fini(&pcf_ue->sm, &e);
-    ogs_fsm_delete(&pcf_ue->sm);
 
     /* Free SBI object memory */
     ogs_sbi_object_free(&pcf_ue->sbi);
@@ -268,8 +270,7 @@ pcf_sess_t *pcf_sess_add(pcf_ue_t *pcf_ue, uint8_t psi)
 
     memset(&e, 0, sizeof(e));
     e.sess = sess;
-    ogs_fsm_create(&sess->sm, pcf_sm_state_initial, pcf_sm_state_final);
-    ogs_fsm_init(&sess->sm, &e);
+    ogs_fsm_init(&sess->sm, pcf_sm_state_initial, pcf_sm_state_final, &e);
 
     ogs_list_add(&pcf_ue->sess_list, sess);
 
@@ -288,7 +289,6 @@ void pcf_sess_remove(pcf_sess_t *sess)
     memset(&e, 0, sizeof(e));
     e.sess = sess;
     ogs_fsm_fini(&sess->sm, &e);
-    ogs_fsm_delete(&sess->sm);
 
     /* Free SBI object memory */
     ogs_sbi_object_free(&sess->sbi);
@@ -442,7 +442,7 @@ int pcf_sessions_number_by_snssai_and_dnn(
 
     ogs_list_for_each(&pcf_ue->sess_list, sess)
         if (sess->s_nssai.sst == s_nssai->sst &&
-            sess->dnn && strcmp(sess->dnn, dnn) == 0)
+            sess->dnn && ogs_strcasecmp(sess->dnn, dnn) == 0)
             number_of_sessions++;
 
     return number_of_sessions;
@@ -497,22 +497,6 @@ pcf_ue_t *pcf_ue_cycle(pcf_ue_t *pcf_ue)
 pcf_sess_t *pcf_sess_cycle(pcf_sess_t *sess)
 {
     return ogs_pool_cycle(&pcf_sess_pool, sess);
-}
-
-void pcf_ue_select_nf(pcf_ue_t *pcf_ue, OpenAPI_nf_type_e nf_type)
-{
-    ogs_assert(pcf_ue);
-    ogs_assert(nf_type);
-
-    ogs_sbi_select_nf(&pcf_ue->sbi, nf_type, pcf_nf_state_registered);
-}
-
-void pcf_sess_select_nf(pcf_sess_t *sess, OpenAPI_nf_type_e nf_type)
-{
-    ogs_assert(sess);
-    ogs_assert(nf_type);
-
-    ogs_sbi_select_nf(&sess->sbi, nf_type, pcf_nf_state_registered);
 }
 
 pcf_app_t *pcf_app_add(pcf_sess_t *sess)

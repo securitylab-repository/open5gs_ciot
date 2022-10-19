@@ -1,4 +1,4 @@
-# Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+# Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
 
 # This file is part of Open5GS.
 
@@ -51,7 +51,6 @@ libsmf_sources = files('''
     n4-build.h
     n4-handler.h
     binding.h
-    nnrf-build.h
     nnrf-handler.h
     nudm-build.h
     nudm-handler.h
@@ -74,7 +73,6 @@ libsmf_sources = files('''
     timer.c
     context.c
     smf-sm.c
-    nf-sm.c
     gsm-sm.c
     pfcp-sm.c
     gtp-path.c
@@ -92,7 +90,6 @@ libsmf_sources = files('''
     n4-build.c
     n4-handler.c
     binding.c
-    nnrf-build.c
     nnrf-handler.c
     nudm-build.c
     nudm-handler.c
@@ -113,29 +110,25 @@ libsmf_sources = files('''
 
 libsmf = static_library('smf',
     sources : libsmf_sources,
-    dependencies : [libapp_dep,
-                    libmetrics_dep,
+    dependencies : [libmetrics_dep,
                     libsbi_dep,
                     libngap_dep,
                     libnas_5gs_dep,
                     libdiameter_gx_dep,
                     libdiameter_gy_dep,
                     libdiameter_s6b_dep,
-                    libgtp_dep,
                     libpfcp_dep],
     install : false)
 
 libsmf_dep = declare_dependency(
     link_with : libsmf,
-    dependencies : [libapp_dep,
-                    libmetrics_dep,
+    dependencies : [libmetrics_dep,
                     libsbi_dep,
                     libngap_dep,
                     libnas_5gs_dep,
                     libdiameter_gx_dep,
                     libdiameter_gy_dep,
                     libdiameter_s6b_dep,
-                    libgtp_dep,
                     libpfcp_dep])
 
 smf_sources = files('''

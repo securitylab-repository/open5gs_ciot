@@ -4,6 +4,7 @@ logger:
 
 parameter:
 #    no_nrf: true
+#    no_scp: true
 #    no_amf: true
 #    no_smf: true
 #    no_upf: true
@@ -18,6 +19,7 @@ parameter:
 #    no_sgwu: true
 #    no_pcrf: true
 #    no_hss: true
+#    use_mongodb_change_stream: true
 
 mme:
     freeDiameter:
@@ -192,6 +194,11 @@ nrf:
       - addr:
         - 127.0.0.10
         - ::1
+        port: 7777
+
+scp:
+    sbi:
+      - addr: 127.0.1.10
         port: 7777
 
 ausf:

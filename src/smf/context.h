@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -126,21 +126,6 @@ typedef struct smf_ue_s {
     ogs_list_t sess_list;
 } smf_ue_t;
 
-#define SMF_NF_INSTANCE_CLEAR(_cAUSE, _nFInstance) \
-    do { \
-        ogs_assert(_nFInstance); \
-        if ((_nFInstance)->reference_count == 1) { \
-            ogs_info("[%s] (%s) NF removed", (_nFInstance)->id, (_cAUSE)); \
-            smf_nf_fsm_fini((_nFInstance)); \
-        } else { \
-            /* There is an assocation with other context */ \
-            ogs_info("[%s:%d] (%s) NF suspended", \
-                    _nFInstance->id, _nFInstance->reference_count, (_cAUSE)); \
-            OGS_FSM_TRAN(&_nFInstance->sm, smf_nf_state_de_registered); \
-            ogs_fsm_dispatch(&_nFInstance->sm, NULL); \
-        } \
-        ogs_sbi_nf_instance_remove(_nFInstance); \
-    } while(0)
 #define SMF_SESS_CLEAR(__sESS) \
     do { \
         smf_ue_t *smf_ue = NULL; \
@@ -285,6 +270,8 @@ typedef struct smf_sess_s {
      * of [POST] /npcf-smpolocycontrol/v1/policies */
     char *policy_association_id;
 
+    OpenAPI_up_cnx_state_e up_cnx_state;
+
     /* PLMN ID & NID */
     ogs_plmn_id_t   plmn_id;
 
@@ -299,6 +286,9 @@ typedef struct smf_sess_s {
 
     /* PCF ID */
     char            *pcf_id;
+
+    /* Serving NF (AMF) Id */
+    char            *serving_nf_id;
 
     /* Integrity protection maximum data rate */
     struct {
@@ -333,6 +323,9 @@ typedef struct smf_sess_s {
         uint8_t selection_mode; /* OGS_GTP{1,2}_SELECTION_MODE_*, same in GTPv1C and 2C. */
         struct {
             uint8_t nsapi;
+            ogs_gtp1_common_flags_t common_flags;
+            ogs_tlv_octet_t qos; /* Encoded GTPv1C "QoS Profile" IE */
+            ogs_gtp1_qos_profile_decoded_t qos_pdec;
             bool peer_supports_apn_ambr;
         } v1;  /* GTPv1C specific fields */
     } gtp; /* Saved from S5-C/Gn */
@@ -412,6 +405,9 @@ typedef struct smf_sess_s {
     ogs_pfcp_node_t *pfcp_node;
 
     smf_ue_t *smf_ue;
+
+    bool n1_released;
+    bool n2_released;
 } smf_sess_t;
 
 void smf_context_init(void);
@@ -495,8 +491,6 @@ smf_ue_t *smf_ue_cycle(smf_ue_t *smf_ue);
 smf_sess_t *smf_sess_cycle(smf_sess_t *sess);
 smf_bearer_t *smf_qos_flow_cycle(smf_bearer_t *qos_flow);
 smf_bearer_t *smf_bearer_cycle(smf_bearer_t *bearer);
-
-void smf_sess_select_nf(smf_sess_t *sess, OpenAPI_nf_type_e nf_type);
 
 smf_pf_t *smf_pf_add(smf_bearer_t *bearer);
 int smf_pf_remove(smf_pf_t *pf);

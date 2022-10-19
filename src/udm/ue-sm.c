@@ -48,17 +48,17 @@ void udm_ue_state_operational(ogs_fsm_t *s, udm_event_t *e)
     udm_ue = e->udm_ue;
     ogs_assert(udm_ue);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
 
     case OGS_FSM_EXIT_SIG:
         break;
 
-    case UDM_EVT_SBI_SERVER:
-        message = e->sbi.message;
+    case OGS_EVENT_SBI_SERVER:
+        message = e->h.sbi.message;
         ogs_assert(message);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
 
         SWITCH(message->h.service.name)
@@ -144,12 +144,30 @@ void udm_ue_state_operational(ogs_fsm_t *s, udm_event_t *e)
                 CASE(OGS_SBI_RESOURCE_NAME_SM_DATA)
                     ogs_assert(true ==
                         udm_sbi_discover_and_send(
-                            OpenAPI_nf_type_UDR, udm_ue, stream, message,
-                            udm_nudr_dr_build_query_subscription_provisioned));
+                            OGS_SBI_SERVICE_TYPE_NUDR_DR, NULL,
+                            udm_nudr_dr_build_query_subscription_provisioned,
+                            udm_ue, stream, message));
                     break;
 
                 CASE(OGS_SBI_RESOURCE_NAME_UE_CONTEXT_IN_SMF_DATA)
                     udm_nudm_sdm_handle_subscription_provisioned(
+                            udm_ue, stream, message);
+                    break;
+
+                DEFAULT
+                    ogs_error("[%s] Invalid resource name [%s]",
+                            udm_ue->suci, message->h.resource.component[1]);
+                    ogs_assert(true ==
+                        ogs_sbi_server_send_error(stream,
+                            OGS_SBI_HTTP_STATUS_BAD_REQUEST, message,
+                            "Invalid resource name", message->h.method));
+                END
+                break;
+
+            CASE(OGS_SBI_HTTP_METHOD_POST)
+                SWITCH(message->h.resource.component[1])
+                CASE(OGS_SBI_RESOURCE_NAME_SDM_SUBSCRIPTIONS)
+                    udm_nudm_sdm_handle_subscription_create(
                             udm_ue, stream, message);
                     break;
 
@@ -181,13 +199,13 @@ void udm_ue_state_operational(ogs_fsm_t *s, udm_event_t *e)
         END
         break;
 
-    case UDM_EVT_SBI_CLIENT:
-        message = e->sbi.message;
+    case OGS_EVENT_SBI_CLIENT:
+        message = e->h.sbi.message;
         ogs_assert(message);
 
         udm_ue = e->udm_ue;
         ogs_assert(udm_ue);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
 
         SWITCH(message->h.service.name)
@@ -252,7 +270,7 @@ void udm_ue_state_exception(ogs_fsm_t *s, udm_event_t *e)
     udm_ue = e->udm_ue;
     ogs_assert(udm_ue);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
 

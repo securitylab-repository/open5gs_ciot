@@ -32,7 +32,7 @@ int nrf_initialize()
     nrf_context_init();
     nrf_event_init();
 
-    rv = ogs_sbi_context_parse_config("nrf", NULL);
+    rv = ogs_sbi_context_parse_config("nrf", NULL, "scp");
     if (rv != OGS_OK) return rv;
 
     rv = nrf_context_parse_config();
@@ -94,8 +94,7 @@ static void nrf_main(void *data)
     ogs_fsm_t nrf_sm;
     int rv;
 
-    ogs_fsm_create(&nrf_sm, nrf_state_initial, nrf_state_final);
-    ogs_fsm_init(&nrf_sm, 0);
+    ogs_fsm_init(&nrf_sm, nrf_state_initial, nrf_state_final, 0);
 
     for ( ;; ) {
         ogs_pollset_poll(ogs_app()->pollset,
@@ -134,5 +133,4 @@ static void nrf_main(void *data)
 done:
 
     ogs_fsm_fini(&nrf_sm, 0);
-    ogs_fsm_delete(&nrf_sm);
 }

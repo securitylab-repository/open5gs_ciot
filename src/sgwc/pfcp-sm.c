@@ -169,12 +169,16 @@ void sgwc_pfcp_state_associated(ogs_fsm_t *s, sgwc_event_t *e)
 
     switch (e->id) {
     case OGS_FSM_ENTRY_SIG:
-        ogs_info("PFCP associated");
+        ogs_info("PFCP associated [%s]:%d",
+            OGS_ADDR(&node->addr, buf),
+            OGS_PORT(&node->addr));
         ogs_timer_start(node->t_no_heartbeat,
                 ogs_app()->time.message.pfcp.no_heartbeat_duration);
         break;
     case OGS_FSM_EXIT_SIG:
-        ogs_info("PFCP de-associated");
+        ogs_info("PFCP de-associated [%s]:%d",
+            OGS_ADDR(&node->addr, buf),
+            OGS_PORT(&node->addr));
         ogs_timer_stop(node->t_no_heartbeat);
         break;
     case SGWC_EVT_SXA_MESSAGE:
@@ -183,8 +187,16 @@ void sgwc_pfcp_state_associated(ogs_fsm_t *s, sgwc_event_t *e)
         xact = e->pfcp_xact;
         ogs_assert(xact);
 
-        if (message->h.seid_presence && message->h.seid != 0)
+        if (message->h.seid_presence && message->h.seid != 0) {
             sess = sgwc_sess_find_by_seid(message->h.seid);
+        } else if (xact->local_seid) { /* rx no SEID or SEID=0 */
+            /* 3GPP TS 29.244 7.2.2.4.2: we receive SEID=0 under some
+             * conditions, such as cause "Session context not found". In those
+             * cases, we still want to identify the local session which
+             * originated the message, so try harder by using the SEID we
+             * locally stored in xact when sending the original request: */
+            sess = sgwc_sess_find_by_seid(xact->local_seid);
+        }
 
         switch (message->h.type) {
         case OGS_PFCP_HEARTBEAT_REQUEST_TYPE:
@@ -198,20 +210,21 @@ void sgwc_pfcp_state_associated(ogs_fsm_t *s, sgwc_event_t *e)
                     &message->pfcp_heartbeat_response));
             break;
         case OGS_PFCP_ASSOCIATION_SETUP_REQUEST_TYPE:
-            ogs_warn("PFCP[REQ] has already been associated");
+            ogs_warn("PFCP[REQ] has already been associated [%s]:%d",
+                OGS_ADDR(&node->addr, buf),
+                OGS_PORT(&node->addr));
             ogs_pfcp_cp_handle_association_setup_request(node, xact,
                     &message->pfcp_association_setup_request);
             break;
         case OGS_PFCP_ASSOCIATION_SETUP_RESPONSE_TYPE:
-            ogs_warn("PFCP[RSP] has already been associated");
+            ogs_warn("PFCP[RSP] has already been associated [%s]:%d",
+                OGS_ADDR(&node->addr, buf),
+                OGS_PORT(&node->addr));
             ogs_pfcp_cp_handle_association_setup_response(node, xact,
                     &message->pfcp_association_setup_response);
             break;
         case OGS_PFCP_SESSION_ESTABLISHMENT_RESPONSE_TYPE:
-            if (!message->h.seid_presence) {
-                ogs_error("No SEID");
-                break;
-            }
+            if (!message->h.seid_presence) ogs_error("No SEID");
 
             sgwc_sxa_handle_session_establishment_response(
                 sess, xact, e->gtp_message,
@@ -219,10 +232,7 @@ void sgwc_pfcp_state_associated(ogs_fsm_t *s, sgwc_event_t *e)
             break;
 
         case OGS_PFCP_SESSION_MODIFICATION_RESPONSE_TYPE:
-            if (!message->h.seid_presence) {
-                ogs_error("No SEID");
-                break;
-            }
+            if (!message->h.seid_presence) ogs_error("No SEID");
 
             sgwc_sxa_handle_session_modification_response(
                 sess, xact, e->gtp_message,
@@ -230,10 +240,7 @@ void sgwc_pfcp_state_associated(ogs_fsm_t *s, sgwc_event_t *e)
             break;
 
         case OGS_PFCP_SESSION_DELETION_RESPONSE_TYPE:
-            if (!message->h.seid_presence) {
-                ogs_error("No SEID");
-                break;
-            }
+            if (!message->h.seid_presence) ogs_error("No SEID");
 
             sgwc_sxa_handle_session_deletion_response(
                 sess, xact, e->gtp_message,
@@ -241,10 +248,7 @@ void sgwc_pfcp_state_associated(ogs_fsm_t *s, sgwc_event_t *e)
             break;
 
         case OGS_PFCP_SESSION_REPORT_REQUEST_TYPE:
-            if (!message->h.seid_presence) {
-                ogs_error("No SEID");
-                break;
-            }
+            if (!message->h.seid_presence) ogs_error("No SEID");
 
             sgwc_sxa_handle_session_report_request(
                 sess, xact, &message->pfcp_session_report_request);
@@ -320,7 +324,7 @@ static void node_timeout(ogs_pfcp_xact_t *xact, void *data)
 
         rv = ogs_queue_push(ogs_app()->queue, e);
         if (rv != OGS_OK) {
-            ogs_warn("ogs_queue_push() failed:%d", (int)rv);
+            ogs_error("ogs_queue_push() failed:%d", (int)rv);
             sgwc_event_free(e);
         }
         break;

@@ -80,7 +80,7 @@ static void get_system_time(uint64_t *uuid_time)
 
     /* ### fix this call to be more portable? */
     ogs_gettimeofday(&tv);
-    *uuid_time = tv.tv_sec * OGS_USEC_PER_SEC + tv.tv_usec;
+    *uuid_time = ogs_time_from_sec(tv.tv_sec) + tv.tv_usec;
 
     /* Offset between UUID formatted times and Unix formatted times.
        UUID UTC base time is October 15, 1582.
@@ -162,7 +162,8 @@ void ogs_uuid_format(char *buffer, const ogs_uuid_t *uuid)
 {
     const unsigned char *d = uuid->data;
 
-    sprintf(buffer, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
+    ogs_snprintf(buffer, OGS_UUID_FORMATTED_LENGTH + 1,
+                    "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
                     "%02x%02x%02x%02x%02x%02x",
                     d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7],
                     d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);

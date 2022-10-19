@@ -394,7 +394,7 @@ uint8_t upf_sess_set_ue_ip(upf_sess_t *sess,
                 pdr->dnn ? pdr->dnn : "");
     }
 
-    ogs_info("UE F-SEID[CP:0x%lx UP:0x%lx] "
+    ogs_info("UE F-SEID[UP:0x%lx CP:0x%lx] "
              "APN[%s] PDN-Type[%d] IPv4[%s] IPv6[%s]",
         (long)sess->upf_n4_seid, (long)sess->smf_n4_f_seid.seid,
         pdr->dnn, session_type,
@@ -413,11 +413,11 @@ void upf_sess_urr_acc_add(upf_sess_t *sess, ogs_pfcp_urr_t *urr, size_t size, bo
     urr_acc->total_octets += size;
     urr_acc->total_pkts++;
     if (is_uplink) {
-        urr_acc->dl_octets += size;
-        urr_acc->dl_pkts++;
-    } else {
         urr_acc->ul_octets += size;
         urr_acc->ul_pkts++;
+    } else {
+        urr_acc->dl_octets += size;
+        urr_acc->dl_pkts++;
     }
 
     urr_acc->time_of_last_packet = ogs_time_now();
@@ -547,7 +547,8 @@ static void upf_sess_urr_acc_validity_time_setup(upf_sess_t *sess, ogs_pfcp_urr_
     if (!urr_acc->t_validity_time)
         urr_acc->t_validity_time = ogs_timer_add(ogs_app()->timer_mgr,
                                         upf_sess_urr_acc_timers_cb, urr);
-    ogs_timer_start(urr_acc->t_validity_time, urr->quota_validity_time * OGS_USEC_PER_SEC);
+    ogs_timer_start(urr_acc->t_validity_time,
+            ogs_time_from_sec(urr->quota_validity_time));
 }
 static void upf_sess_urr_acc_time_quota_setup(upf_sess_t *sess, ogs_pfcp_urr_t *urr)
 {
@@ -558,7 +559,7 @@ static void upf_sess_urr_acc_time_quota_setup(upf_sess_t *sess, ogs_pfcp_urr_t *
     if (!urr_acc->t_time_quota)
         urr_acc->t_time_quota = ogs_timer_add(ogs_app()->timer_mgr,
                                         upf_sess_urr_acc_timers_cb, urr);
-    ogs_timer_start(urr_acc->t_time_quota, urr->time_quota * OGS_USEC_PER_SEC);
+    ogs_timer_start(urr_acc->t_time_quota, ogs_time_from_sec(urr->time_quota));
 }
 static void upf_sess_urr_acc_time_threshold_setup(upf_sess_t *sess, ogs_pfcp_urr_t *urr)
 {
@@ -569,7 +570,8 @@ static void upf_sess_urr_acc_time_threshold_setup(upf_sess_t *sess, ogs_pfcp_urr
     if (!urr_acc->t_time_threshold)
         urr_acc->t_time_threshold = ogs_timer_add(ogs_app()->timer_mgr,
                                         upf_sess_urr_acc_timers_cb, urr);
-    ogs_timer_start(urr_acc->t_time_threshold, urr->time_threshold * OGS_USEC_PER_SEC);
+    ogs_timer_start(urr_acc->t_time_threshold,
+            ogs_time_from_sec(urr->time_threshold));
 }
 
 void upf_sess_urr_acc_timers_setup(upf_sess_t *sess, ogs_pfcp_urr_t *urr)

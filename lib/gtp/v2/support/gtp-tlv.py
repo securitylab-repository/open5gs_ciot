@@ -603,8 +603,8 @@ for (k, v) in sorted_msg_list:
 f.write("   };\n");
 f.write("} ogs_gtp2_message_t;\n\n")
 
-f.write("""int ogs_gtp2_parse_msg(ogs_gtp2_message_t *gtp_message, ogs_pkbuf_t *pkbuf);
-ogs_pkbuf_t *ogs_gtp2_build_msg(ogs_gtp2_message_t *gtp_message);
+f.write("""int ogs_gtp2_parse_msg(ogs_gtp2_message_t *gtp2_message, ogs_pkbuf_t *pkbuf);
+ogs_pkbuf_t *ogs_gtp2_build_msg(ogs_gtp2_message_t *gtp2_message);
 
 #ifdef __cplusplus
 }
@@ -722,7 +722,7 @@ for (k, v) in sorted_msg_list:
         f.write("                &ogs_gtp2_tlv_desc_%s, pkbuf, OGS_TLV_MODE_T1_L2_I1);\n" % v_lower(k))
         f.write("        break;\n")
 f.write("""    default:
-        ogs_warn("Not implmeneted(type:%d)", gtp2_message->h.type);
+        ogs_warn("Not implemented(type:%d)", gtp2_message->h.type);
         break;
     }
 
@@ -747,7 +747,7 @@ for (k, v) in sorted_msg_list:
         f.write("                &gtp2_message->%s, OGS_TLV_MODE_T1_L2_I1);\n" % v_lower(k))
         f.write("        break;\n")
 f.write("""    default:
-        ogs_warn("Not implmeneted(type:%d)", gtp2_message->h.type);
+        ogs_warn("Not implemented(type:%d)", gtp2_message->h.type);
         break;
     }
 

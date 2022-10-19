@@ -20,7 +20,7 @@
 /*******************************************************************************
  * This file had been created by pfcp-tlv.py script v0.1.0
  * Please do not modify this file but regenerate it via script.
- * Created on: 2022-06-12 08:57:15.347805 by acetcom
+ * Created on: 2022-06-29 14:29:16.181253 by acetcom
  * from 29244-g91-modified.docx
  ******************************************************************************/
 
@@ -3778,11 +3778,11 @@ ogs_tlv_desc_t ogs_pfcp_msg_desc_pfcp_session_establishment_request =
         &ogs_pfcp_tlv_desc_node_id,
         &ogs_pfcp_tlv_desc_f_seid,
         &ogs_pfcp_tlv_desc_create_pdr,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_create_far,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_create_urr,
-        &ogs_tlv_desc_more2,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_create_qer,
         &ogs_tlv_desc_more4,
         &ogs_pfcp_tlv_desc_create_bar,
@@ -3818,7 +3818,7 @@ ogs_tlv_desc_t ogs_pfcp_msg_desc_pfcp_session_establishment_response =
         &ogs_pfcp_tlv_desc_offending_ie,
         &ogs_pfcp_tlv_desc_f_seid,
         &ogs_pfcp_tlv_desc_created_pdr,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_load_control_information,
         &ogs_pfcp_tlv_desc_overload_control_information,
         &ogs_pfcp_tlv_desc_fq_csid,
@@ -3837,31 +3837,31 @@ ogs_tlv_desc_t ogs_pfcp_msg_desc_pfcp_session_modification_request =
     0, 0, 0, 0, {
         &ogs_pfcp_tlv_desc_f_seid,
         &ogs_pfcp_tlv_desc_remove_pdr,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_remove_far,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_remove_urr,
-        &ogs_tlv_desc_more2,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_remove_qer,
         &ogs_tlv_desc_more4,
         &ogs_pfcp_tlv_desc_remove_bar,
         &ogs_pfcp_tlv_desc_remove_traffic_endpoint,
         &ogs_pfcp_tlv_desc_create_pdr,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_create_far,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_create_urr,
-        &ogs_tlv_desc_more2,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_create_qer,
         &ogs_tlv_desc_more4,
         &ogs_pfcp_tlv_desc_create_bar,
         &ogs_pfcp_tlv_desc_create_traffic_endpoint,
         &ogs_pfcp_tlv_desc_update_pdr,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_update_far,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_update_urr,
-        &ogs_tlv_desc_more2,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_update_qer,
         &ogs_tlv_desc_more4,
         &ogs_pfcp_tlv_desc_update_bar_session_modification_request,
@@ -3900,7 +3900,7 @@ ogs_tlv_desc_t ogs_pfcp_msg_desc_pfcp_session_modification_response =
         &ogs_pfcp_tlv_desc_cause,
         &ogs_pfcp_tlv_desc_offending_ie,
         &ogs_pfcp_tlv_desc_created_pdr,
-        &ogs_tlv_desc_more8,
+        &ogs_tlv_desc_more16,
         &ogs_pfcp_tlv_desc_load_control_information,
         &ogs_pfcp_tlv_desc_overload_control_information,
         &ogs_pfcp_tlv_desc_usage_report_session_modification_response,
@@ -4104,7 +4104,7 @@ int ogs_pfcp_parse_msg(ogs_pfcp_message_t *pfcp_message, ogs_pkbuf_t *pkbuf)
                     &ogs_pfcp_msg_desc_pfcp_session_report_response, pkbuf, OGS_TLV_MODE_T2_L2);
             break;
         default:
-            ogs_warn("Not implmeneted(type:%d)", pfcp_message->h.type);
+            ogs_warn("Not implemented(type:%d)", pfcp_message->h.type);
             break;
     }
 
@@ -4211,7 +4211,7 @@ ogs_pkbuf_t *ogs_pfcp_build_msg(ogs_pfcp_message_t *pfcp_message)
                     &pfcp_message->pfcp_session_report_response, OGS_TLV_MODE_T2_L2);
             break;
         default:
-            ogs_warn("Not implmeneted(type:%d)", pfcp_message->h.type);
+            ogs_warn("Not implemented(type:%d)", pfcp_message->h.type);
             break;
     }
 

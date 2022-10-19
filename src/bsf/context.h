@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -23,7 +23,6 @@
 #include "ogs-sbi.h"
 #include "ogs-app.h"
 
-#include "timer.h"
 #include "bsf-sm.h"
 
 #ifdef __cplusplus
@@ -41,24 +40,6 @@ typedef struct bsf_context_s {
 
     ogs_list_t          sess_list;
 } bsf_context_t;
-
-#define BSF_NF_INSTANCE_CLEAR(_cAUSE, _nFInstance) \
-    do { \
-        ogs_assert(_nFInstance); \
-        if ((_nFInstance)->reference_count == 1) { \
-            ogs_info("[%s] (%s) NF removed", (_nFInstance)->id, (_cAUSE)); \
-            bsf_nf_fsm_fini((_nFInstance)); \
-        } else { \
-            /* There is an assocation with other context */ \
-            ogs_info("[%s:%d] (%s) NF suspended", \
-                    _nFInstance->id, _nFInstance->reference_count, (_cAUSE)); \
-            OGS_FSM_TRAN(&_nFInstance->sm, bsf_nf_state_de_registered); \
-            ogs_fsm_dispatch(&_nFInstance->sm, NULL); \
-        } \
-        ogs_sbi_nf_instance_remove(_nFInstance); \
-    } while(0)
-
-typedef struct bsf_sess_s bsf_sess_t;
 
 typedef struct bsf_sess_s {
     ogs_sbi_object_t sbi;
@@ -101,7 +82,8 @@ bsf_context_t *bsf_self(void);
 
 int bsf_context_parse_config(void);
 
-bsf_sess_t *bsf_sess_add_by_snssai_and_dnn(ogs_s_nssai_t *s_nssai, char *dnn);
+bsf_sess_t *bsf_sess_add_by_ip_address(
+            char *ipv4addr_string, char *ipv6prefix_string);
 void bsf_sess_remove(bsf_sess_t *sess);
 void bsf_sess_remove_all(void);
 
@@ -113,8 +95,6 @@ bsf_sess_t *bsf_sess_find_by_snssai_and_dnn(ogs_s_nssai_t *s_nssai, char *dnn);
 bsf_sess_t *bsf_sess_find_by_binding_id(char *binding_id);
 bsf_sess_t *bsf_sess_find_by_ipv4addr(char *ipv4addr_string);
 bsf_sess_t *bsf_sess_find_by_ipv6prefix(char *ipv6prefix_string);
-
-void bsf_sess_select_nf(bsf_sess_t *sess, OpenAPI_nf_type_e nf_type);
 
 #ifdef __cplusplus
 }

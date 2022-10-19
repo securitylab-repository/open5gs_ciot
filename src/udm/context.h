@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019,2020 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -25,13 +25,10 @@
 #include "ogs-sbi.h"
 
 #include "udm-sm.h"
-#include "timer.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define MAX_NUM_OF_SERVED_GUAMI     8
 
 extern int __udm_log_domain;
 
@@ -61,6 +58,7 @@ struct udm_ue_s {
     char *amf_instance_id;
 
     char *dereg_callback_uri;
+    char *data_change_callback_uri;
 
     uint8_t k[OGS_KEY_LEN];
     uint8_t opc[OGS_KEY_LEN];
@@ -72,22 +70,6 @@ struct udm_ue_s {
 
     OpenAPI_auth_type_e auth_type;
     OpenAPI_rat_type_e rat_type;
-
-#define UDM_NF_INSTANCE_CLEAR(_cAUSE, _nFInstance) \
-    do { \
-        ogs_assert(_nFInstance); \
-        if ((_nFInstance)->reference_count == 1) { \
-            ogs_info("[%s] (%s) NF removed", (_nFInstance)->id, (_cAUSE)); \
-            udm_nf_fsm_fini((_nFInstance)); \
-        } else { \
-            /* There is an assocation with other context */ \
-            ogs_info("[%s:%d] (%s) NF suspended", \
-                    _nFInstance->id, _nFInstance->reference_count, (_cAUSE)); \
-            OGS_FSM_TRAN(&_nFInstance->sm, udm_nf_state_de_registered); \
-            ogs_fsm_dispatch(&_nFInstance->sm, NULL); \
-        } \
-        ogs_sbi_nf_instance_remove(_nFInstance); \
-    } while(0)
 };
 
 void udm_context_init(void);
@@ -105,8 +87,6 @@ udm_ue_t *udm_ue_find_by_suci_or_supi(char *suci_or_supi);
 udm_ue_t *udm_ue_find_by_ctx_id(char *ctx_id);
 
 udm_ue_t *udm_ue_cycle(udm_ue_t *udm_ue);
-
-void udm_ue_select_nf(udm_ue_t *udm_ue, OpenAPI_nf_type_e nf_type);
 
 #ifdef __cplusplus
 }

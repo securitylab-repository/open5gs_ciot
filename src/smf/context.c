@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -80,7 +80,7 @@ void smf_context_init(void)
     ogs_log_install_domain(&__smf_log_domain, "smf", ogs_core()->log.level);
     ogs_log_install_domain(&__gsm_log_domain, "gsm", ogs_core()->log.level);
 
-    ogs_pool_init(&smf_gtp_node_pool, ogs_app()->pool.gtp_node);
+    ogs_pool_init(&smf_gtp_node_pool, ogs_app()->pool.nf);
     ogs_pool_init(&smf_ue_pool, ogs_app()->max.ue);
     ogs_pool_init(&smf_sess_pool, ogs_app()->pool.sess);
     ogs_pool_init(&smf_bearer_pool, ogs_app()->pool.bearer);
@@ -831,6 +831,12 @@ int smf_context_parse_config(void)
                     /* handle config in pfcp library */
                 } else if (!strcmp(smf_key, "sbi")) {
                     /* handle config in sbi library */
+                } else if (!strcmp(smf_key, "service_name")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(smf_key, "discovery")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(smf_key, "metrics")) {
+                    /* handle config in metrics library */
                 } else
                     ogs_warn("unknown key `%s`", smf_key);
             }
@@ -1109,8 +1115,7 @@ smf_sess_t *smf_sess_add_by_apn(smf_ue_t *smf_ue, char *apn, uint8_t rat_type)
 
     memset(&e, 0, sizeof(e));
     e.sess = sess;
-    ogs_fsm_create(&sess->sm, smf_gsm_state_initial, smf_gsm_state_final);
-    ogs_fsm_init(&sess->sm, &e);
+    ogs_fsm_init(&sess->sm, smf_gsm_state_initial, smf_gsm_state_final, &e);
 
     sess->smf_ue = smf_ue;
 
@@ -1319,8 +1324,7 @@ smf_sess_t *smf_sess_add_by_psi(smf_ue_t *smf_ue, uint8_t psi)
 
     memset(&e, 0, sizeof(e));
     e.sess = sess;
-    ogs_fsm_create(&sess->sm, smf_gsm_state_initial, smf_gsm_state_final);
-    ogs_fsm_init(&sess->sm, &e);
+    ogs_fsm_init(&sess->sm, smf_gsm_state_initial, smf_gsm_state_final, &e);
 
     sess->smf_ue = smf_ue;
 
@@ -1600,12 +1604,12 @@ void smf_sess_remove(smf_sess_t *sess)
     memset(&e, 0, sizeof(e));
     e.sess = sess;
     ogs_fsm_fini(&sess->sm, &e);
-    ogs_fsm_delete(&sess->sm);
 
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_pco);
     OGS_TLV_CLEAR_DATA(&sess->gtp.user_location_information);
     OGS_TLV_CLEAR_DATA(&sess->gtp.ue_timezone);
     OGS_TLV_CLEAR_DATA(&sess->gtp.charging_characteristics);
+    OGS_TLV_CLEAR_DATA(&sess->gtp.v1.qos);
 
     OGS_NAS_CLEAR_DATA(&sess->nas.ue_pco);
 
@@ -1657,6 +1661,8 @@ void smf_sess_remove(smf_sess_t *sess)
 
     if (sess->pcf_id)
         ogs_free(sess->pcf_id);
+    if (sess->serving_nf_id)
+        ogs_free(sess->serving_nf_id);
 
     /* Free SBI object memory */
     ogs_sbi_object_free(&sess->sbi);
@@ -1822,23 +1828,21 @@ smf_bearer_t *smf_qos_flow_add(smf_sess_t *sess)
     ogs_assert(dl_pdr);
     qos_flow->dl_pdr = dl_pdr;
 
-    dl_pdr->src_if = OGS_PFCP_INTERFACE_CORE;
+    ogs_assert(sess->session.name);
+    dl_pdr->apn = ogs_strdup(sess->session.name);
+    ogs_assert(dl_pdr->apn);
 
-    if (sess->session.name) {
-        dl_pdr->apn = ogs_strdup(sess->session.name);
-        ogs_assert(dl_pdr->apn);
-    }
+    dl_pdr->src_if = OGS_PFCP_INTERFACE_CORE;
 
     ul_pdr = ogs_pfcp_pdr_add(&sess->pfcp);
     ogs_assert(ul_pdr);
     qos_flow->ul_pdr = ul_pdr;
 
-    ul_pdr->src_if = OGS_PFCP_INTERFACE_ACCESS;
+    ogs_assert(sess->session.name);
+    ul_pdr->apn = ogs_strdup(sess->session.name);
+    ogs_assert(ul_pdr->apn);
 
-    if (sess->session.name) {
-        ul_pdr->apn = ogs_strdup(sess->session.name);
-        ogs_assert(ul_pdr->apn);
-    }
+    ul_pdr->src_if = OGS_PFCP_INTERFACE_ACCESS;
 
     ul_pdr->outer_header_removal_len = 2;
     if (sess->session.session_type == OGS_PDU_SESSION_TYPE_IPV4) {
@@ -1860,6 +1864,10 @@ smf_bearer_t *smf_qos_flow_add(smf_sess_t *sess)
     ogs_assert(dl_far);
     qos_flow->dl_far = dl_far;
 
+    ogs_assert(sess->session.name);
+    dl_far->apn = ogs_strdup(sess->session.name);
+    ogs_assert(dl_far->apn);
+
     dl_far->dst_if = OGS_PFCP_INTERFACE_ACCESS;
     ogs_pfcp_pdr_associate_far(dl_pdr, dl_far);
 
@@ -1870,6 +1878,10 @@ smf_bearer_t *smf_qos_flow_add(smf_sess_t *sess)
     ul_far = ogs_pfcp_far_add(&sess->pfcp);
     ogs_assert(ul_far);
     qos_flow->ul_far = ul_far;
+
+    ogs_assert(sess->session.name);
+    ul_far->apn = ogs_strdup(sess->session.name);
+    ogs_assert(ul_far->apn);
 
     ul_far->dst_if = OGS_PFCP_INTERFACE_CORE;
     ogs_pfcp_pdr_associate_far(ul_pdr, ul_far);
@@ -1925,6 +1937,10 @@ void smf_sess_create_indirect_data_forwarding(smf_sess_t *sess)
         pdr = ogs_pfcp_pdr_add(&sess->pfcp);
         ogs_assert(pdr);
 
+        ogs_assert(sess->session.name);
+        pdr->apn = ogs_strdup(sess->session.name);
+        ogs_assert(pdr->apn);
+
         pdr->src_if = OGS_PFCP_INTERFACE_ACCESS;
 
         pdr->outer_header_removal_len = 1;
@@ -1943,6 +1959,10 @@ void smf_sess_create_indirect_data_forwarding(smf_sess_t *sess)
         far = ogs_pfcp_far_add(&sess->pfcp);
         ogs_assert(far);
 
+        ogs_assert(sess->session.name);
+        far->apn = ogs_strdup(sess->session.name);
+        ogs_assert(far->apn);
+
         far->dst_if = OGS_PFCP_INTERFACE_ACCESS;
         ogs_pfcp_pdr_associate_far(pdr, far);
 
@@ -1957,6 +1977,22 @@ void smf_sess_create_indirect_data_forwarding(smf_sess_t *sess)
 
         ogs_assert(sess->pfcp_node);
         if (sess->pfcp_node->up_function_features.ftup) {
+
+           /* TS 129 244 V16.5.0 8.2.3
+            *
+            * At least one of the V4 and V6 flags shall be set to "1",
+            * and both may be set to "1" for both scenarios:
+            *
+            * - when the CP function is providing F-TEID, i.e.
+            *   both IPv4 address field and IPv6 address field may be present;
+            *   or
+            * - when the UP function is requested to allocate the F-TEID,
+            *   i.e. when CHOOSE bit is set to "1",
+            *   and the IPv4 address and IPv6 address fields are not present.
+            */
+
+            pdr->f_teid.ipv4 = 1;
+            pdr->f_teid.ipv6 = 1;
             pdr->f_teid.ch = 1;
             pdr->f_teid.chid = 1;
             pdr->f_teid.choose_id = OGS_PFCP_INDIRECT_DATA_FORWARDING_CHOOSE_ID;
@@ -2071,6 +2107,10 @@ void smf_sess_create_cp_up_data_forwarding(smf_sess_t *sess)
     ogs_assert(cp2up_pdr);
     sess->cp2up_pdr = cp2up_pdr;
 
+    ogs_assert(sess->session.name);
+    cp2up_pdr->apn = ogs_strdup(sess->session.name);
+    ogs_assert(cp2up_pdr->apn);
+
     cp2up_pdr->src_if = OGS_PFCP_INTERFACE_CP_FUNCTION;
 
     cp2up_pdr->outer_header_removal_len = 1;
@@ -2089,6 +2129,10 @@ void smf_sess_create_cp_up_data_forwarding(smf_sess_t *sess)
     up2cp_pdr = ogs_pfcp_pdr_add(&sess->pfcp);
     ogs_assert(up2cp_pdr);
     sess->up2cp_pdr = up2cp_pdr;
+
+    ogs_assert(sess->session.name);
+    up2cp_pdr->apn = ogs_strdup(sess->session.name);
+    ogs_assert(up2cp_pdr->apn);
 
     up2cp_pdr->src_if = OGS_PFCP_INTERFACE_ACCESS;
 
@@ -2118,6 +2162,10 @@ void smf_sess_create_cp_up_data_forwarding(smf_sess_t *sess)
     up2cp_far = ogs_pfcp_far_add(&sess->pfcp);
     ogs_assert(up2cp_far);
     sess->up2cp_far = up2cp_far;
+
+    ogs_assert(sess->session.name);
+    up2cp_far->apn = ogs_strdup(sess->session.name);
+    ogs_assert(up2cp_far->apn);
 
     up2cp_far->dst_if = OGS_PFCP_INTERFACE_CP_FUNCTION;
     ogs_pfcp_pdr_associate_far(up2cp_pdr, up2cp_far);
@@ -2208,21 +2256,21 @@ smf_bearer_t *smf_bearer_add(smf_sess_t *sess)
     ogs_assert(dl_pdr);
     bearer->dl_pdr = dl_pdr;
 
-    dl_pdr->src_if = OGS_PFCP_INTERFACE_CORE;
-
     ogs_assert(sess->session.name);
     dl_pdr->apn = ogs_strdup(sess->session.name);
     ogs_assert(dl_pdr->apn);
+
+    dl_pdr->src_if = OGS_PFCP_INTERFACE_CORE;
 
     ul_pdr = ogs_pfcp_pdr_add(&sess->pfcp);
     ogs_assert(ul_pdr);
     bearer->ul_pdr = ul_pdr;
 
-    ul_pdr->src_if = OGS_PFCP_INTERFACE_ACCESS;
-
     ogs_assert(sess->session.name);
     ul_pdr->apn = ogs_strdup(sess->session.name);
     ogs_assert(ul_pdr->apn);
+
+    ul_pdr->src_if = OGS_PFCP_INTERFACE_ACCESS;
 
     ul_pdr->outer_header_removal_len = 1;
     if (sess->session.session_type == OGS_PDU_SESSION_TYPE_IPV4) {
@@ -2242,6 +2290,10 @@ smf_bearer_t *smf_bearer_add(smf_sess_t *sess)
     ogs_assert(dl_far);
     bearer->dl_far = dl_far;
 
+    ogs_assert(sess->session.name);
+    dl_far->apn = ogs_strdup(sess->session.name);
+    ogs_assert(dl_far->apn);
+
     dl_far->dst_if = OGS_PFCP_INTERFACE_ACCESS;
     ogs_pfcp_pdr_associate_far(dl_pdr, dl_far);
 
@@ -2252,6 +2304,10 @@ smf_bearer_t *smf_bearer_add(smf_sess_t *sess)
     ul_far = ogs_pfcp_far_add(&sess->pfcp);
     ogs_assert(ul_far);
     bearer->ul_far = ul_far;
+
+    ogs_assert(sess->session.name);
+    ul_far->apn = ogs_strdup(sess->session.name);
+    ogs_assert(ul_far->apn);
 
     ul_far->dst_if = OGS_PFCP_INTERFACE_CORE;
     ogs_pfcp_pdr_associate_far(ul_pdr, ul_far);
@@ -2475,14 +2531,6 @@ smf_bearer_t *smf_qos_flow_cycle(smf_bearer_t *qos_flow)
     return ogs_pool_cycle(&smf_bearer_pool, qos_flow);
 }
 
-void smf_sess_select_nf(smf_sess_t *sess, OpenAPI_nf_type_e nf_type)
-{
-    ogs_assert(sess);
-    ogs_assert(nf_type);
-
-    ogs_sbi_select_nf(&sess->sbi, nf_type, smf_nf_state_registered);
-}
-
 smf_pf_t *smf_pf_add(smf_bearer_t *bearer)
 {
     smf_sess_t *sess = NULL;
@@ -2602,22 +2650,22 @@ static const uint8_t *ipcp_contains_option(
     const ogs_pco_ipcp_t *ipcp, size_t ipcp_len,
     enum ogs_pco_ipcp_options opt, size_t opt_minlen)
 {
-	const uint8_t *cur_opt = (const uint8_t *)ipcp->options;
+    const uint8_t *cur_opt = (const uint8_t *)ipcp->options;
 
-	/* iterate over Options and check if protocol contained */
-	while (cur_opt + sizeof(struct ogs_pco_ipcp_options_s) <=
+    /* iterate over Options and check if protocol contained */
+    while (cur_opt + sizeof(struct ogs_pco_ipcp_options_s) <=
             (uint8_t*)ipcp + ipcp_len) {
-		const struct ogs_pco_ipcp_options_s *cur_opt_hdr =
+        const struct ogs_pco_ipcp_options_s *cur_opt_hdr =
             (const struct ogs_pco_ipcp_options_s *)cur_opt;
-		/* length value includes 2 bytes type/length */
-		if (cur_opt_hdr->len < 2)
-			return NULL;
-		if (cur_opt_hdr->type == opt &&
-		    cur_opt_hdr->len >= 2 + opt_minlen)
-			return cur_opt;
-		cur_opt += cur_opt_hdr->len;
-	}
-	return NULL;
+        /* length value includes 2 bytes type/length */
+        if (cur_opt_hdr->len < 2)
+            return NULL;
+        if (cur_opt_hdr->type == opt &&
+            cur_opt_hdr->len >= 2 + opt_minlen)
+            return cur_opt;
+        cur_opt += cur_opt_hdr->len;
+    }
+    return NULL;
 }
 
 #include "../version.h"

@@ -29,7 +29,6 @@ char *ogs_uridup(bool https, ogs_sockaddr_t *addr, ogs_sbi_header_t *h)
     char *hostname = NULL;
 
     ogs_assert(addr);
-    ogs_assert(h);
 
     p = uri;
     last = uri + OGS_HUGE_LEN;
@@ -61,16 +60,18 @@ char *ogs_uridup(bool https, ogs_sockaddr_t *addr, ogs_sbi_header_t *h)
     }
 
     /* API */
-    ogs_assert(h->service.name);
-    p = ogs_slprintf(p, last, "/%s", h->service.name);
-    ogs_assert(h->api.version);
-    p = ogs_slprintf(p, last, "/%s", h->api.version);
+    if (h) {
+        ogs_assert(h->service.name);
+        p = ogs_slprintf(p, last, "/%s", h->service.name);
+        ogs_assert(h->api.version);
+        p = ogs_slprintf(p, last, "/%s", h->api.version);
 
-    /* Resource */
-    ogs_assert(h->resource.component[0]);
-    for (i = 0; i < OGS_SBI_MAX_NUM_OF_RESOURCE_COMPONENT &&
-                        h->resource.component[i]; i++)
-        p = ogs_slprintf(p, last, "/%s", h->resource.component[i]);
+        /* Resource */
+        ogs_assert(h->resource.component[0]);
+        for (i = 0; i < OGS_SBI_MAX_NUM_OF_RESOURCE_COMPONENT &&
+                            h->resource.component[i]; i++)
+            p = ogs_slprintf(p, last, "/%s", h->resource.component[i]);
+    }
 
     return ogs_strdup(uri);
 }
@@ -81,7 +82,6 @@ char *ogs_sbi_server_uri(ogs_sbi_server_t *server, ogs_sbi_header_t *h)
     bool https = false;
 
     ogs_assert(server);
-    ogs_assert(h);
 
     if (server->tls.key && server->tls.pem)
         https = true;
@@ -100,12 +100,16 @@ char *ogs_sbi_client_uri(ogs_sbi_client_t *client, ogs_sbi_header_t *h)
     bool https = false;
 
     ogs_assert(client);
-    ogs_assert(h);
 
     if (client->tls.key && client->tls.pem)
         https = true;
 
     return ogs_uridup(https, client->node.addr, h);
+}
+
+char *ogs_sbi_client_apiroot(ogs_sbi_client_t *client)
+{
+    return ogs_sbi_client_uri(client, NULL);
 }
 
 /**
@@ -205,6 +209,57 @@ ogs_sockaddr_t *ogs_sbi_getaddr_from_uri(char *uri)
 
     ogs_free(p);
     return addr;
+}
+
+char *ogs_sbi_getpath_from_uri(char *uri)
+{
+    int rv;
+    struct yuarel yuarel;
+    char *p = NULL;
+    char *path = NULL;
+
+    p = ogs_strdup(uri);
+
+    rv = yuarel_parse(&yuarel, p);
+    if (rv != OGS_OK) {
+        ogs_free(p);
+        ogs_error("yuarel_parse() failed [%s]", uri);
+        return NULL;
+    }
+
+    if (!yuarel.scheme) {
+        ogs_error("No http.scheme found [%s]", uri);
+        ogs_free(p);
+        return NULL;
+    }
+
+    if (strcmp(yuarel.scheme, "https") == 0) {
+
+    } else if (strcmp(yuarel.scheme, "http") == 0) {
+
+    } else {
+        ogs_error("Invalid http.scheme [%s:%s]", yuarel.scheme, uri);
+        ogs_free(p);
+        return NULL;
+    }
+
+    if (!yuarel.host) {
+        ogs_error("No http.host found [%s]", uri);
+        ogs_free(p);
+        return NULL;
+    }
+
+    if (!yuarel.path) {
+        ogs_error("No http.path found [%s]", uri);
+        ogs_free(p);
+        return NULL;
+    }
+
+    path = ogs_strdup(yuarel.path);
+    ogs_assert(path);
+
+    ogs_free(p);
+    return path;
 }
 
 char *ogs_sbi_bitrate_to_string(uint64_t bitrate, int unit)
@@ -394,6 +449,72 @@ bool ogs_sbi_time_from_string(ogs_time_t *timestamp, char *str)
     }
 
     return true;
+}
+
+int ogs_sbi_rfc7231_string(char *date_str, ogs_time_t time)
+{
+    const char ogs_month_snames[12][4] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+        "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+    const char ogs_day_snames[7][4] = {
+        "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+    };
+
+    struct tm gmt;
+    const char *s;
+    int real_year;
+
+    ogs_time_t sec = ogs_time_sec(time);
+    ogs_time_t msec = ogs_time_msec(time);
+
+    ogs_assert(date_str);
+
+    ogs_gmtime(sec, &gmt);
+
+    /* example: "Sun, 04 Aug 2019 08:49:37.845 GMT" */
+    /*           123456789012345678901234567890123  */
+
+    s = &ogs_day_snames[gmt.tm_wday][0];
+    *date_str++ = *s++;
+    *date_str++ = *s++;
+    *date_str++ = *s++;
+    *date_str++ = ',';
+    *date_str++ = ' ';
+    *date_str++ = gmt.tm_mday / 10 + '0';
+    *date_str++ = gmt.tm_mday % 10 + '0';
+    *date_str++ = ' ';
+    s = &ogs_month_snames[gmt.tm_mon][0];
+    *date_str++ = *s++;
+    *date_str++ = *s++;
+    *date_str++ = *s++;
+    *date_str++ = ' ';
+    real_year = 1900 + gmt.tm_year;
+    /* This routine isn't y10k ready. */
+    *date_str++ = real_year / 1000 + '0';
+    *date_str++ = real_year % 1000 / 100 + '0';
+    *date_str++ = real_year % 100 / 10 + '0';
+    *date_str++ = real_year % 10 + '0';
+    *date_str++ = ' ';
+    *date_str++ = gmt.tm_hour / 10 + '0';
+    *date_str++ = gmt.tm_hour % 10 + '0';
+    *date_str++ = ':';
+    *date_str++ = gmt.tm_min / 10 + '0';
+    *date_str++ = gmt.tm_min % 10 + '0';
+    *date_str++ = ':';
+    *date_str++ = gmt.tm_sec / 10 + '0';
+    *date_str++ = gmt.tm_sec % 10 + '0';
+    *date_str++ = '.';
+    *date_str++ = msec / 100 + '0';
+    *date_str++ = msec % 100 / 10 + '0';
+    *date_str++ = msec % 10 + '0';
+    *date_str++ = ' ';
+    *date_str++ = 'G';
+    *date_str++ = 'M';
+    *date_str++ = 'T';
+    *date_str++ = 0;
+
+    return OGS_OK;
 }
 
 char *ogs_sbi_s_nssai_to_string(ogs_s_nssai_t *s_nssai)

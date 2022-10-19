@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019,2020 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -102,6 +102,10 @@ int udm_context_parse_config(void)
                 ogs_assert(udm_key);
                 if (!strcmp(udm_key, "sbi")) {
                     /* handle config in sbi library */
+                } else if (!strcmp(udm_key, "service_name")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(udm_key, "discovery")) {
+                    /* handle config in sbi library */
                 } else
                     ogs_warn("unknown key `%s`", udm_key);
             }
@@ -133,14 +137,13 @@ udm_ue_t *udm_ue_add(char *suci)
     ogs_assert(udm_ue->suci);
     ogs_hash_set(self.suci_hash, udm_ue->suci, strlen(udm_ue->suci), udm_ue);
 
-    udm_ue->supi = ogs_supi_from_suci(udm_ue->suci);
+    udm_ue->supi = ogs_supi_from_supi_or_suci(udm_ue->suci);
     ogs_assert(udm_ue->supi);
     ogs_hash_set(self.supi_hash, udm_ue->supi, strlen(udm_ue->supi), udm_ue);
 
     memset(&e, 0, sizeof(e));
     e.udm_ue = udm_ue;
-    ogs_fsm_create(&udm_ue->sm, udm_ue_state_initial, udm_ue_state_final);
-    ogs_fsm_init(&udm_ue->sm, &e);
+    ogs_fsm_init(&udm_ue->sm, udm_ue_state_initial, udm_ue_state_final, &e);
 
     ogs_list_add(&self.udm_ue_list, udm_ue);
 
@@ -158,7 +161,6 @@ void udm_ue_remove(udm_ue_t *udm_ue)
     memset(&e, 0, sizeof(e));
     e.udm_ue = udm_ue;
     ogs_fsm_fini(&udm_ue->sm, &e);
-    ogs_fsm_delete(&udm_ue->sm);
 
     /* Free SBI object memory */
     ogs_sbi_object_free(&udm_ue->sbi);
@@ -186,6 +188,8 @@ void udm_ue_remove(udm_ue_t *udm_ue)
         ogs_free(udm_ue->amf_instance_id);
     if (udm_ue->dereg_callback_uri)
         ogs_free(udm_ue->dereg_callback_uri);
+    if (udm_ue->data_change_callback_uri)
+        ogs_free(udm_ue->data_change_callback_uri);
 
     ogs_pool_free(&udm_ue_pool, udm_ue);
 }
@@ -228,12 +232,4 @@ udm_ue_t *udm_ue_find_by_ctx_id(char *ctx_id)
 udm_ue_t *udm_ue_cycle(udm_ue_t *udm_ue)
 {
     return ogs_pool_cycle(&udm_ue_pool, udm_ue);
-}
-
-void udm_ue_select_nf(udm_ue_t *udm_ue, OpenAPI_nf_type_e nf_type)
-{
-    ogs_assert(udm_ue);
-    ogs_assert(nf_type);
-
-    ogs_sbi_select_nf(&udm_ue->sbi, nf_type, udm_nf_state_registered);
 }

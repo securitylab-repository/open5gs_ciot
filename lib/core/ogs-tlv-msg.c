@@ -36,6 +36,22 @@ ogs_tlv_desc_t ogs_tlv_desc_more7 = {
     OGS_TLV_MORE, "More", 0, 7, 0, 0, { NULL } };
 ogs_tlv_desc_t ogs_tlv_desc_more8 = {
     OGS_TLV_MORE, "More", 0, 8, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more9 = {
+    OGS_TLV_MORE, "More", 0, 9, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more10 = {
+    OGS_TLV_MORE, "More", 0, 10, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more11 = {
+    OGS_TLV_MORE, "More", 0, 11, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more12 = {
+    OGS_TLV_MORE, "More", 0, 12, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more13 = {
+    OGS_TLV_MORE, "More", 0, 13, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more14 = {
+    OGS_TLV_MORE, "More", 0, 14, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more15 = {
+    OGS_TLV_MORE, "More", 0, 15, 0, 0, { NULL } };
+ogs_tlv_desc_t ogs_tlv_desc_more16 = {
+    OGS_TLV_MORE, "More", 0, 16, 0, 0, { NULL } };
 
 /* Return specific TLV mode based on its TLV description type and the msg
  * provided mode (used to know the type length) */
@@ -396,8 +412,7 @@ static int tlv_parse_leaf(void *msg, ogs_tlv_desc_t *desc, ogs_tlv_t *tlv)
     {
         ogs_tlv_uint8_t *v = (ogs_tlv_uint8_t *)msg;
 
-        if (tlv->length != 1)
-        {
+        if (tlv->length != 1) {
             ogs_error("Invalid TLV length %d. It should be 1", tlv->length);
             return OGS_ERROR;
         }
@@ -411,9 +426,8 @@ static int tlv_parse_leaf(void *msg, ogs_tlv_desc_t *desc, ogs_tlv_t *tlv)
     {
         ogs_tlv_uint16_t *v = (ogs_tlv_uint16_t *)msg;
 
-        if (tlv->length != 2)
-        {
-            ogs_error("Invalid TLV length %d. It should be 2", tlv->length);
+        if (tlv->length < 1 || tlv->length > 2) {
+            ogs_error("Invalid TLV length %d.", tlv->length);
             return OGS_ERROR;
         }
         v->u16 = ((((uint8_t*)tlv->value)[0]<< 8)&0xff00) |
@@ -427,9 +441,8 @@ static int tlv_parse_leaf(void *msg, ogs_tlv_desc_t *desc, ogs_tlv_t *tlv)
     {
         ogs_tlv_uint24_t *v = (ogs_tlv_uint24_t *)msg;
 
-        if (tlv->length != 3)
-        {
-            ogs_error("Invalid TLV length %d. It should be 3", tlv->length);
+        if (tlv->length < 1 || tlv->length > 3) {
+            ogs_error("Invalid TLV length %d.", tlv->length);
             return OGS_ERROR;
         }
         v->u24 = ((((uint8_t*)tlv->value)[0]<<16)&0x00ff0000) |
@@ -444,9 +457,8 @@ static int tlv_parse_leaf(void *msg, ogs_tlv_desc_t *desc, ogs_tlv_t *tlv)
     {
         ogs_tlv_uint32_t *v = (ogs_tlv_uint32_t *)msg;
 
-        if (tlv->length != 4)
-        {
-            ogs_error("Invalid TLV length %d. It should be 4", tlv->length);
+        if (tlv->length < 1 || tlv->length > 4) {
+            ogs_error("Invalid TLV length %d.", tlv->length);
             return OGS_ERROR;
         }
         v->u32 = ((((uint8_t*)tlv->value)[0]<<24)&0xff000000) |
@@ -747,7 +759,15 @@ static ogs_tlv_t *ogs_tlv_parse_block_desc(uint32_t length, void *data, uint8_t 
         ogs_assert(pos);
     }
 
-    ogs_assert(length == (pos - blk));
+    if (length != (pos - blk)) {
+        ogs_error("ogs_tlv_parse_block() failed[LEN:%d,MODE:%d]",
+                length, msg_mode);
+        ogs_error("POS[%p] BLK[%p] POS-BLK[%d]", pos, blk, (int)(pos - blk));
+        ogs_log_hexdump(OGS_LOG_FATAL, data, length);
+
+        ogs_tlv_free_all(root);
+        return NULL;
+    }
 
     return root;
 }

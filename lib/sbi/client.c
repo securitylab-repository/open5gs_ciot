@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "ogs-app.h"
 #include "ogs-sbi.h"
 
 #include "curl/curl.h"
@@ -45,6 +44,7 @@ typedef struct connection_s {
 
     char *memory;
     size_t size;
+    bool memory_overflow;
 
     char *location;
 
@@ -102,15 +102,18 @@ ogs_sbi_client_t *ogs_sbi_client_add(ogs_sockaddr_t *addr)
     ogs_assert(client);
     memset(client, 0, sizeof(ogs_sbi_client_t));
 
-    client->reference_count++;
-    ogs_trace("ogs_sbi_client_add()");
+    ogs_debug("ogs_sbi_client_add()");
+    OGS_OBJECT_REF(client);
 
     ogs_assert(OGS_OK == ogs_copyaddrinfo(&client->node.addr, addr));
 
-    ogs_list_init(&client->connection_list);
-
     client->t_curl = ogs_timer_add(
             ogs_app()->timer_mgr, multi_timer_expired, client);
+    if (!client->t_curl) {
+        ogs_error("ogs_timer_add() failed");
+        ogs_pool_free(&client_pool, client);
+        return NULL;
+    }
 
     multi = client->multi = curl_multi_init();
     ogs_assert(multi);
@@ -118,6 +121,12 @@ ogs_sbi_client_t *ogs_sbi_client_add(ogs_sockaddr_t *addr)
     curl_multi_setopt(multi, CURLMOPT_SOCKETDATA, client);
     curl_multi_setopt(multi, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
     curl_multi_setopt(multi, CURLMOPT_TIMERDATA, client);
+#ifdef CURLMOPT_MAX_CONCURRENT_STREAMS
+    curl_multi_setopt(multi, CURLMOPT_MAX_CONCURRENT_STREAMS,
+                        ogs_app()->pool.stream);
+#endif
+
+    ogs_list_init(&client->connection_list);
 
     ogs_list_add(&ogs_sbi_self()->client_list, client);
 
@@ -126,17 +135,22 @@ ogs_sbi_client_t *ogs_sbi_client_add(ogs_sockaddr_t *addr)
 
 void ogs_sbi_client_remove(ogs_sbi_client_t *client)
 {
+    ogs_sockaddr_t *addr = NULL;
+    char buf[OGS_ADDRSTRLEN];
+
     ogs_assert(client);
 
+    addr = client->node.addr;
+    ogs_assert(addr);
+    ogs_debug("ogs_sbi_client_remove() [%s:%d]",
+                OGS_ADDR(addr, buf), OGS_PORT(addr));
+
     /* ogs_sbi_client_t is always created with reference context */
-    ogs_assert(client->reference_count > 0);
-
-    ogs_trace("client->reference_count = %d", client->reference_count);
-    client->reference_count--;
-    if (client->reference_count > 0)
+    if (OGS_OBJECT_IS_REF(client)) {
+        OGS_OBJECT_UNREF(client);
         return;
+    }
 
-    ogs_trace("ogs_sbi_client_remove()");
     ogs_list_remove(&ogs_sbi_self()->client_list, client);
 
     connection_remove_all(client);
@@ -174,6 +188,26 @@ ogs_sbi_client_t *ogs_sbi_client_find(ogs_sockaddr_t *addr)
     }
 
     return client;
+}
+
+void ogs_sbi_client_stop(ogs_sbi_client_t *client)
+{
+    connection_t *conn = NULL;
+
+    ogs_assert(client);
+
+    ogs_list_for_each(&client->connection_list, conn) {
+        ogs_assert(conn->client_cb);
+        conn->client_cb(OGS_DONE, NULL, conn->data);
+    }
+}
+
+void ogs_sbi_client_stop_all(void)
+{
+    ogs_sbi_client_t *client = NULL;
+
+    ogs_list_for_each(&ogs_sbi_self()->client_list, client)
+        ogs_sbi_client_stop(client);
 }
 
 #define mycase(code) \
@@ -246,6 +280,8 @@ static char *add_params_to_uri(CURL *easy, char *uri, ogs_hash_t *params)
     return uri;
 }
 
+static void _connection_remove(connection_t *conn);
+
 static connection_t *connection_add(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data)
@@ -269,19 +305,31 @@ static connection_t *connection_add(
     conn->data = data;
 
     conn->method = ogs_strdup(request->h.method);
-    ogs_expect_or_return_val(conn->method, NULL);
+    if (!conn->method) {
+        ogs_error("conn->method is NULL");
+        _connection_remove(conn);
+        return NULL;
+    }
 
     conn->num_of_header = ogs_hash_count(request->http.headers);
     if (conn->num_of_header) {
         conn->headers = ogs_calloc(conn->num_of_header, sizeof(char *));
-        ogs_expect_or_return_val(conn->headers, NULL);
+        if (!conn->headers) {
+            ogs_error("conn->headers is NULL");
+            _connection_remove(conn);
+            return NULL;
+        }
         for (hi = ogs_hash_first(request->http.headers), i = 0;
                 hi && i < conn->num_of_header; hi = ogs_hash_next(hi), i++) {
             const char *key = ogs_hash_this_key(hi);
             char *val = ogs_hash_this_val(hi);
 
             conn->headers[i] = ogs_msprintf("%s: %s", key, val);
-            ogs_expect_or_return_val(conn->headers[i], NULL);
+            if (!conn->headers[i]) {
+                ogs_error("conn->headers[i=%d] is NULL", i);
+                _connection_remove(conn);
+                return NULL;
+            }
             conn->header_list = curl_slist_append(
                     conn->header_list, conn->headers[i]);
         }
@@ -289,9 +337,11 @@ static connection_t *connection_add(
 
     conn->timer = ogs_timer_add(
             ogs_app()->timer_mgr, connection_timer_expired, conn);
-    ogs_expect_or_return_val(conn->timer, NULL);
-
-    ogs_list_add(&client->connection_list, conn);
+    if (!conn->timer) {
+        ogs_error("conn->timer is NULL");
+        _connection_remove(conn);
+        return NULL;
+    }
 
     /* If http response is not received within deadline,
      * Open5GS will discard this request. */
@@ -299,7 +349,23 @@ static connection_t *connection_add(
             ogs_app()->time.message.sbi.connection_deadline);
 
     conn->easy = curl_easy_init();
-    ogs_assert(conn->easy);
+    if (!conn->easy) {
+        ogs_error("conn->easy is NULL");
+        _connection_remove(conn);
+        return NULL;
+    }
+
+    if (ogs_hash_count(request->http.params)) {
+        char *uri = add_params_to_uri(conn->easy,
+                            request->h.uri, request->http.params);
+        if (!uri) {
+            ogs_error("add_params_to_uri() failed");
+            _connection_remove(conn);
+            return NULL;
+        }
+
+        request->h.uri = uri;
+    }
 
     /* HTTP Method */
     if (strcmp(request->h.method, OGS_SBI_HTTP_METHOD_PUT) == 0 ||
@@ -312,7 +378,11 @@ static connection_t *connection_add(
         if (request->http.content) {
             conn->content = ogs_memdup(
                     request->http.content, request->http.content_length);
-            ogs_assert(conn->content);
+            if (!conn->content) {
+                ogs_error("conn->content is NULL");
+                _connection_remove(conn);
+                return NULL;
+            }
             curl_easy_setopt(conn->easy,
                     CURLOPT_POSTFIELDS, conn->content);
             curl_easy_setopt(conn->easy,
@@ -336,11 +406,7 @@ static connection_t *connection_add(
             CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
 #endif
 
-    if (ogs_hash_count(request->http.params)) {
-        request->h.uri = add_params_to_uri(conn->easy,
-                            request->h.uri, request->http.params);
-        ogs_expect_or_return_val(request->h.uri, NULL);
-    }
+    ogs_list_add(&client->connection_list, conn);
 
     curl_easy_setopt(conn->easy, CURLOPT_URL, request->h.uri);
 
@@ -358,27 +424,11 @@ static connection_t *connection_add(
     return conn;
 }
 
-static void connection_remove(connection_t *conn)
+static void _connection_remove(connection_t *conn)
 {
-    ogs_sbi_client_t *client = NULL;
     int i;
 
     ogs_assert(conn);
-    client = conn->client;
-    ogs_assert(client);
-
-    ogs_list_remove(&client->connection_list, conn);
-
-    ogs_assert(conn->timer);
-    ogs_timer_delete(conn->timer);
-
-    ogs_assert(conn->easy);
-    ogs_assert(client->multi);
-    curl_multi_remove_handle(client->multi, conn->easy);
-    curl_easy_cleanup(conn->easy);
-
-    ogs_assert(conn->method);
-    ogs_free(conn->method);
 
     if (conn->content)
         ogs_free(conn->content);
@@ -386,17 +436,43 @@ static void connection_remove(connection_t *conn)
     if (conn->location)
         ogs_free(conn->location);
 
+    if (conn->memory)
+        ogs_free(conn->memory);
+
+    if (conn->easy)
+        curl_easy_cleanup(conn->easy);
+
+    if (conn->timer)
+        ogs_timer_delete(conn->timer);
+
     if (conn->num_of_header) {
         for (i = 0; i < conn->num_of_header; i++)
-            ogs_free(conn->headers[i]);
+            if (conn->headers[i])
+                ogs_free(conn->headers[i]);
         ogs_free(conn->headers);
     }
     curl_slist_free_all(conn->header_list);
 
-    if (conn->memory)
-        ogs_free(conn->memory);
+    if (conn->method)
+        ogs_free(conn->method);
 
     ogs_pool_free(&connection_pool, conn);
+}
+
+static void connection_remove(connection_t *conn)
+{
+    ogs_sbi_client_t *client = NULL;
+
+    ogs_assert(conn);
+    client = conn->client;
+    ogs_assert(client);
+
+    ogs_list_remove(&client->connection_list, conn);
+
+    ogs_assert(client->multi);
+    curl_multi_remove_handle(client->multi, conn->easy);
+
+    _connection_remove(conn);
 }
 
 static void connection_remove_all(ogs_sbi_client_t *client)
@@ -415,6 +491,11 @@ static void connection_timer_expired(void *data)
 
     conn = data;
     ogs_assert(conn);
+
+    ogs_error("Connection timer expired");
+
+    ogs_assert(conn->client_cb);
+    conn->client_cb(OGS_TIMEUP, NULL, conn->data);
 
     connection_remove(conn);
 }
@@ -453,6 +534,8 @@ static void check_multi_info(ogs_sbi_client_t *client)
 
             res = resource->data.result;
             if (res == CURLE_OK) {
+                ogs_log_level_e level = OGS_LOG_DEBUG;
+
                 response = ogs_sbi_response_new();
                 ogs_assert(response);
 
@@ -466,7 +549,17 @@ static void check_multi_info(ogs_sbi_client_t *client)
                 response->h.uri = ogs_strdup(url);
                 ogs_assert(response->h.uri);
 
-                ogs_debug("[%d:%s] %s",
+                if (content_type)
+                    ogs_sbi_header_set(response->http.headers,
+                            OGS_SBI_CONTENT_TYPE, content_type);
+                if (conn->location)
+                    ogs_sbi_header_set(response->http.headers,
+                            OGS_SBI_LOCATION, conn->location);
+
+                if (conn->memory_overflow == true)
+                    level = OGS_LOG_ERROR;
+
+                ogs_log_message(level, 0, "[%d:%s] %s",
                         response->status, response->h.method, response->h.uri);
 
                 if (conn->memory) {
@@ -477,22 +570,23 @@ static void check_multi_info(ogs_sbi_client_t *client)
                     ogs_assert(response->http.content_length);
                 }
 
-                ogs_debug("RECEIVED[%d]", (int)response->http.content_length);
+                ogs_log_message(level, 0, "RECEIVED[%d]",
+                        (int)response->http.content_length);
                 if (response->http.content_length && response->http.content)
-                    ogs_debug("%s", response->http.content);
+                    ogs_log_message(level, 0, "%s", response->http.content);
 
-                if (content_type)
-                    ogs_sbi_header_set(response->http.headers,
-                            OGS_SBI_CONTENT_TYPE, content_type);
-                if (conn->location)
-                    ogs_sbi_header_set(response->http.headers,
-                            OGS_SBI_LOCATION, conn->location);
+                if (conn->memory_overflow == true) {
+                    ogs_sbi_response_free(response);
+                    connection_remove(conn);
+                    break;
+                }
 
-                ogs_assert(conn->client_cb);
-                conn->client_cb(response, conn->data);
             } else
                 ogs_warn("[%d] %s", res, conn->error);
 
+            ogs_assert(conn->client_cb);
+            conn->client_cb(res == CURLE_OK ? OGS_OK : OGS_ERROR,
+                            response, conn->data);
             connection_remove(conn);
             break;
         default:
@@ -502,7 +596,7 @@ static void check_multi_info(ogs_sbi_client_t *client)
     }
 }
 
-bool ogs_sbi_client_send_request(
+bool ogs_sbi_client_send_reqmem_persistent(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data)
 {
@@ -513,15 +607,126 @@ bool ogs_sbi_client_send_request(
 
     if (request->h.uri == NULL) {
         request->h.uri = ogs_sbi_client_uri(client, &request->h);
+        ogs_expect_or_return_val(request->h.uri, false);
     }
     ogs_debug("[%s] %s", request->h.method, request->h.uri);
 
     conn = connection_add(client, client_cb, request, data);
     ogs_expect_or_return_val(conn, false);
 
+    return true;
+}
+
+bool ogs_sbi_client_send_request(
+        ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
+        ogs_sbi_request_t *request, void *data)
+{
+    bool rc;
+
+    ogs_assert(client);
+    ogs_assert(request);
+
+    rc = ogs_sbi_client_send_reqmem_persistent(
+            client, client_cb, request, data);
+    ogs_expect(rc == true);
+
     ogs_sbi_request_free(request);
 
+    return rc;
+}
+
+bool ogs_sbi_scp_send_reqmem_persistent(
+        ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
+        ogs_sbi_request_t *request, void *data)
+{
+    ogs_sbi_nf_instance_t *scp_instance = NULL;
+    connection_t *conn = NULL;
+    char *apiroot = NULL;
+
+    ogs_assert(client);
+    ogs_assert(request);
+
+    scp_instance = ogs_sbi_self()->scp_instance;
+
+    if (scp_instance) {
+        /*
+         * In case of indirect communication using SCP,
+         * add 3gpp-Sbi-Target-apiRoot to HTTP header and
+         * change CLIENT instance to SCP.
+         */
+        apiroot = ogs_sbi_client_apiroot(client);
+        ogs_assert(apiroot);
+
+        ogs_sbi_header_set(request->http.headers,
+                OGS_SBI_CUSTOM_TARGET_APIROOT, apiroot);
+
+        ogs_free(apiroot);
+
+        client = scp_instance->client;
+        ogs_assert(client);
+    }
+
+    if (request->h.uri == NULL) {
+        /*
+         * Regardless of direct or indirect communication,
+         * if there is no URI, we automatically creates a URI
+         * with Client Address and request->h
+         */
+        request->h.uri = ogs_sbi_client_uri(client, &request->h);
+        ogs_assert(request->h.uri);
+
+        ogs_debug("[%s] %s", request->h.method, request->h.uri);
+
+    } else if (scp_instance) {
+        /*
+         * In case of indirect communication using SCP,
+         * If the full URI is already defined, change full URI to SCP as below.
+         *
+         * OLD: http://127.0.0.5:7777/nnrf-nfm/v1/nf-status-notify
+         * NEW: https://scp.open5gs.org/nnrf-nfm/v1/nf-status-notify
+         */
+        char *path = NULL;
+        char *old = NULL;
+
+        old = request->h.uri;
+
+        apiroot = ogs_sbi_client_apiroot(client);
+        ogs_assert(apiroot);
+
+        path = ogs_sbi_getpath_from_uri(request->h.uri);
+        ogs_assert(path);
+
+        request->h.uri = ogs_msprintf("%s/%s", apiroot, path);
+        ogs_assert(request->h.uri);
+
+        ogs_free(apiroot);
+        ogs_free(path);
+        ogs_free(old);
+
+        ogs_debug("[%s] %s", request->h.method, request->h.uri);
+    }
+
+    conn = connection_add(client, client_cb, request, data);
+    ogs_expect_or_return_val(conn, false);
+
     return true;
+}
+
+bool ogs_sbi_scp_send_request(
+        ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
+        ogs_sbi_request_t *request, void *data)
+{
+    bool rc;
+
+    ogs_assert(client);
+    ogs_assert(request);
+
+    rc = ogs_sbi_scp_send_reqmem_persistent(client, client_cb, request, data);
+    ogs_expect(rc == true);
+
+    ogs_sbi_request_free(request);
+
+    return rc;
 }
 
 static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data)
@@ -536,8 +741,12 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data)
     realsize = size * nmemb;
     ptr = ogs_realloc(conn->memory, conn->size + realsize + 1);
     if(!ptr) {
-        ogs_fatal("not enough memory (realloc returned NULL)");
-        ogs_assert_if_reached();
+        conn->memory_overflow = true;
+
+        ogs_error("Overflow : conn->size[%d], realsize[%d]",
+                    (int)conn->size, (int)realsize);
+        ogs_log_hexdump(OGS_LOG_ERROR, contents, realsize);
+
         return 0;
     }
 

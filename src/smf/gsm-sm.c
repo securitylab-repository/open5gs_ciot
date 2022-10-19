@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019,2020 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -235,7 +235,7 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         /* reset state: */
         sess->sm_data.gx_ccr_init_in_flight = false;
@@ -294,14 +294,14 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
             break;
 
         default:
-            ogs_error("Not implmeneted(type:%d)", gtp2_message->h.type);
+            ogs_error("Not implemented(type:%d)", gtp2_message->h.type);
         }
         break;
 
-    case SMF_EVT_SBI_SERVER:
-        sbi_message = e->sbi.message;
+    case OGS_EVENT_SBI_SERVER:
+        sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
 
         SWITCH(sbi_message->h.service.name)
@@ -342,7 +342,7 @@ void smf_gsm_state_initial(ogs_fsm_t *s, smf_event_t *e)
         ogs_assert(nas_message);
         sess = e->sess;
         ogs_assert(sess);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
@@ -397,7 +397,7 @@ void smf_gsm_state_wait_epc_auth_initial(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case SMF_EVT_GX_MESSAGE:
         gx_message = e->gx_message;
         ogs_assert(gx_message);
@@ -482,14 +482,14 @@ void smf_gsm_state_wait_5gc_sm_policy_association(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
     case OGS_FSM_EXIT_SIG:
         break;
 
-    case SMF_EVT_SBI_CLIENT:
-        sbi_message = e->sbi.message;
+    case OGS_EVENT_SBI_CLIENT:
+        sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
         sess = e->sess;
@@ -499,7 +499,7 @@ void smf_gsm_state_wait_5gc_sm_policy_association(ogs_fsm_t *s, smf_event_t *e)
 
         SWITCH(sbi_message->h.service.name)
         CASE(OGS_SBI_SERVICE_NAME_NUDM_SDM)
-            stream = e->sbi.data;
+            stream = e->h.sbi.data;
             ogs_assert(stream);
 
             SWITCH(sbi_message->h.resource.component[1])
@@ -545,8 +545,8 @@ void smf_gsm_state_wait_5gc_sm_policy_association(ogs_fsm_t *s, smf_event_t *e)
             break;
 
         CASE(OGS_SBI_SERVICE_NAME_NPCF_SMPOLICYCONTROL)
-            stream = e->sbi.data;
-            state = e->sbi.state;
+            stream = e->h.sbi.data;
+            state = e->h.sbi.state;
 
             SWITCH(sbi_message->h.resource.component[0])
             CASE(OGS_SBI_RESOURCE_NAME_SM_POLICIES)
@@ -648,7 +648,7 @@ void smf_gsm_state_wait_pfcp_establishment(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case SMF_EVT_N4_MESSAGE:
         pfcp_xact = e->pfcp_xact;
         ogs_assert(pfcp_xact);
@@ -757,7 +757,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
 
@@ -808,14 +808,14 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
             break;
 
         default:
-            ogs_error("Not implmeneted(type:%d)", gtp2_message->h.type);
+            ogs_error("Not implemented(type:%d)", gtp2_message->h.type);
         }
         break;
 
-    case SMF_EVT_SBI_SERVER:
-        sbi_message = e->sbi.message;
+    case OGS_EVENT_SBI_SERVER:
+        sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
 
         SWITCH(sbi_message->h.service.name)
@@ -849,8 +849,8 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
         END
         break;
 
-    case SMF_EVT_SBI_CLIENT:
-        sbi_message = e->sbi.message;
+    case OGS_EVENT_SBI_CLIENT:
+        sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
         sess = e->sess;
@@ -860,7 +860,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
 
         SWITCH(sbi_message->h.service.name)
         CASE(OGS_SBI_SERVICE_NAME_NPCF_SMPOLICYCONTROL)
-            stream = e->sbi.data;
+            stream = e->h.sbi.data;
 
             SWITCH(sbi_message->h.resource.component[0])
             CASE(OGS_SBI_RESOURCE_NAME_SM_POLICIES)
@@ -940,7 +940,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
             SWITCH(sbi_message->h.resource.component[0])
             CASE(OGS_SBI_RESOURCE_NAME_UE_CONTEXTS)
                 smf_namf_comm_handle_n1_n2_message_transfer(
-                        sess, e->sbi.state, sbi_message);
+                        sess, e->h.sbi.state, sbi_message);
                 break;
 
             DEFAULT
@@ -963,7 +963,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
         ogs_assert(nas_message);
         sess = e->sess;
         ogs_assert(sess);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
@@ -996,9 +996,11 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     NGAP_CauseNas_normal_release;
 
                 ogs_assert(true ==
-                    smf_sbi_discover_and_send(OpenAPI_nf_type_PCF, sess, stream,
-                        OGS_PFCP_DELETE_TRIGGER_UE_REQUESTED, &param,
-                        smf_npcf_smpolicycontrol_build_delete));
+                    smf_sbi_discover_and_send(
+                        OGS_SBI_SERVICE_TYPE_NPCF_SMPOLICYCONTROL, NULL,
+                        smf_npcf_smpolicycontrol_build_delete,
+                        sess, stream,
+                        OGS_PFCP_DELETE_TRIGGER_UE_REQUESTED, &param));
             } else {
                 ogs_error("[%s:%d] No PolicyAssociationId",
                         smf_ue->supi, sess->psi);
@@ -1022,7 +1024,7 @@ void smf_gsm_state_operational(ogs_fsm_t *s, smf_event_t *e)
     case SMF_EVT_NGAP_MESSAGE:
         sess = e->sess;
         ogs_assert(sess);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
@@ -1159,7 +1161,7 @@ void smf_gsm_state_wait_pfcp_deletion(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         /* Since `pfcp_xact->epc` is not avaiable,
          * we'll use `sess->epc` */
@@ -1169,12 +1171,12 @@ void smf_gsm_state_wait_pfcp_deletion(ogs_fsm_t *s, smf_event_t *e)
                 smf_epc_pfcp_send_session_deletion_request(sess, e->gtp_xact));
         } else {
             /* 5GC */
-            stream = e->sbi.data;
+            stream = e->h.sbi.data;
             ogs_assert(stream);
 
             ogs_assert(OGS_OK ==
                 smf_5gc_pfcp_send_session_deletion_request(
-                    sess, stream, e->sbi.state));
+                    sess, stream, e->h.sbi.state));
         }
         break;
 
@@ -1285,7 +1287,7 @@ void smf_gsm_state_wait_epc_auth_release(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         /* reset state: */
         sess->sm_data.gx_cca_term_err = ER_DIAMETER_SUCCESS;
@@ -1412,16 +1414,16 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
     case OGS_FSM_EXIT_SIG:
         break;
 
-    case SMF_EVT_SBI_SERVER:
-        sbi_message = e->sbi.message;
+    case OGS_EVENT_SBI_SERVER:
+        sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
 
         SWITCH(sbi_message->h.service.name)
@@ -1452,8 +1454,8 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
         END
         break;
 
-    case SMF_EVT_SBI_CLIENT:
-        sbi_message = e->sbi.message;
+    case OGS_EVENT_SBI_CLIENT:
+        sbi_message = e->h.sbi.message;
         ogs_assert(sbi_message);
 
         sess = e->sess;
@@ -1466,7 +1468,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
             SWITCH(sbi_message->h.resource.component[0])
             CASE(OGS_SBI_RESOURCE_NAME_UE_CONTEXTS)
                 smf_namf_comm_handle_n1_n2_message_transfer(
-                        sess, e->sbi.state, sbi_message);
+                        sess, e->h.sbi.state, sbi_message);
                 break;
 
             DEFAULT
@@ -1487,7 +1489,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
     case SMF_EVT_NGAP_MESSAGE:
         sess = e->sess;
         ogs_assert(sess);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
@@ -1519,6 +1521,11 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
 
                 ogs_assert(true == ogs_sbi_send_http_status_no_content(stream));
 
+                sess->n2_released = true;
+                if ((sess->n1_released) && (sess->n2_released)) {
+                    OGS_FSM_TRAN(s, &smf_gsm_state_session_will_release);
+                }
+
             } else {
                 ogs_fatal("Invalid state [%d]", ngap_state);
                 ogs_assert_if_reached();
@@ -1534,7 +1541,7 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
         ogs_assert(nas_message);
         sess = e->sess;
         ogs_assert(sess);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
         smf_ue = sess->smf_ue;
         ogs_assert(smf_ue);
@@ -1543,7 +1550,12 @@ void smf_gsm_state_wait_5gc_n1_n2_release(ogs_fsm_t *s, smf_event_t *e)
         case OGS_NAS_5GS_PDU_SESSION_RELEASE_COMPLETE:
             ogs_assert(true == ogs_sbi_send_http_status_no_content(stream));
             ogs_assert(true == smf_sbi_send_sm_context_status_notify(sess));
-            OGS_FSM_TRAN(s, &smf_gsm_state_session_will_release);
+
+            sess->n1_released = true;
+            if ((sess->n1_released) && (sess->n2_released)) {
+                OGS_FSM_TRAN(s, &smf_gsm_state_session_will_release);
+            }
+
             break;
         default:
             strerror = ogs_msprintf("Unknown message [%d]",
@@ -1571,7 +1583,7 @@ void smf_gsm_state_session_will_release(ogs_fsm_t *s, smf_event_t *e)
     sess = e->sess;
     ogs_assert(sess);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         SMF_SESS_CLEAR(sess);
         break;
@@ -1600,7 +1612,7 @@ void smf_gsm_state_exception(ogs_fsm_t *s, smf_event_t *e)
     smf_ue = sess->smf_ue;
     ogs_assert(smf_ue);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         ogs_error("[%s:%d] State machine exception", smf_ue->supi, sess->psi);
         SMF_SESS_CLEAR(sess);
