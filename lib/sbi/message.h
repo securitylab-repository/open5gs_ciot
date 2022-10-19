@@ -148,6 +148,10 @@ extern "C" {
 #define OGS_SBI_SERVICE_NAME_NIDSF_DETECT           "nidsf-detect"
 
 
+//created by le linh
+#define OGS_SBI_SERVICE_NAME_NIDSF_DETECT           "nidsf-detect"
+
+
 #define OGS_SBI_FEATURES_IS_SET(__fEATURES, __n) \
     (__fEATURES & (1 << ((__n)-1)))
 #define OGS_SBI_FEATURES_SET(__fEATURES, __n) \
