@@ -2,6 +2,7 @@
     created by le linh
     based on similar component of amf,smf,pcf
     for interact with other function
+    modified based on ausf
 */
 
 #include "sbi-path.h"
@@ -15,14 +16,14 @@ int idsf_initialize()
     int rv;
 
     ogs_sbi_context_init();
-
+  
     // context.c
     idsf_context_init();
     // event.c
-    idsf_event_init();
+    // idsf_event_init();
 
     //announce nrf - need check
-    rv = ogs_sbi_context_parse_config("idsf", "nrf");
+    rv = ogs_sbi_context_parse_config("idsf", "nrf","scp");
     if (rv != OGS_OK) return rv;
     
     // YAML config file
@@ -53,7 +54,7 @@ static void event_termination(void)
 
     /* Sending NF Instance De-registeration to NRF - nf-sm.c*/
     ogs_list_for_each(&ogs_sbi_self()->nf_instance_list, nf_instance)
-        idsf_nf_fsm_fini(nf_instance);
+        ogs_sbi_nf_fsm_fini(nf_instance);
 
     /* Starting holding timer */
     t_termination_holding = ogs_timer_add(ogs_app()->timer_mgr, NULL, NULL);
@@ -67,6 +68,7 @@ static void event_termination(void)
 }
 
 // based from pcf/init.c
+// modified based on ausf
 void idsf_terminate(void)
 {
     if (!initialized) return;
@@ -84,7 +86,7 @@ void idsf_terminate(void)
     ogs_sbi_context_final();
 
     // event.c
-    idsf_event_final(); /* Destroy event */
+    // idsf_event_final(); /* Destroy event */
 }
 
 // based on pcf/init.c
@@ -94,8 +96,8 @@ static void idsf_main(void *data)
     int rv;
 
     // idsf-sm.c
-    ogs_fsm_create(&idsf_sm, idsf_state_initial, idsf_state_final);
-    ogs_fsm_init(&idsf_sm, 0);
+    // ogs_fsm_create(&idsf_sm, idsf_state_initial, idsf_state_final);
+    ogs_fsm_init(&idsf_sm, idsf_state_initial,idsf_state_final,0);
 
     for ( ;; ) {
         ogs_pollset_poll(ogs_app()->pollset,
@@ -129,11 +131,11 @@ static void idsf_main(void *data)
             ogs_assert(e);
             ogs_fsm_dispatch(&idsf_sm, e);
             // need creation in event.c
-            idsf_event_free(e);
+            ogs_event_free(e);
         }
     }
 done:
 
     ogs_fsm_fini(&idsf_sm, 0);
-    ogs_fsm_delete(&idsf_sm);
+    // ogs_fsm_delete(&idsf_sm);
 }

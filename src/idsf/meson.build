@@ -4,11 +4,9 @@
 libidsf_sources = files('''
     context.c
     event.c
-    timer.c
 
-    nnrf-build.c
     nnrf-handler.c
-    nf-sm.c
+    nidsf-handler.c
 
     sbi-path.c
     idsf-sm.c

@@ -4,6 +4,7 @@
 */
 
 #include "sbi-path.h"
+#include "context.h"
 
 static idsf_context_t self;
 
@@ -17,6 +18,7 @@ void idsf_context_init(void)
 
     /* Initialize IDSF context */
     memset(&self, 0, sizeof(idsf_context_t));
+    
     ogs_log_install_domain(&__idsf_log_domain, "idsf", ogs_core()->log.level);
 
     context_initialized = 1;
@@ -68,6 +70,10 @@ int idsf_context_parse_config(void)
                 const char *idsf_key = ogs_yaml_iter_key(&idsf_iter);
                 ogs_assert(idsf_key);
                 if (!strcmp(idsf_key, "sbi")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(idsf_key, "service_name")) {
+                    /* handle config in sbi library */
+                } else if (!strcmp(idsf_key, "discovery")) {
                     /* handle config in sbi library */
                 } else
                     ogs_warn("unknown key `%s`", idsf_key);
