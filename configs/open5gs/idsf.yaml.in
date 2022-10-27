@@ -91,14 +91,10 @@ idsf:
         port: 7777
     pfcp:
       - addr: 127.0.0.25
-      - addr: ::1
     gtpu:
       - addr: 127.0.0.25
-      - addr: ::1
     gtpc:
       - addr: 127.0.0.25
-      - addr: ::1
-
 #
 # nrf:
 #
