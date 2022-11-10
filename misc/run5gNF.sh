@@ -32,19 +32,21 @@ while getopts ":hrds" option; do
             ./open5gs-bsfd &
             ./open5gs-udrd &
             ./open5gs-scpd &
+            ./open5gs-idsfd &
             exit;;
         d) # run with debug log level
-            ./open5gs-amfd -d &
+            ./open5gs-amfd  &
             ./open5gs-smfd -d &
             ./open5gs-upfd -d &
-            ./open5gs-nrfd -d &
-            ./open5gs-ausfd -d &
-            ./open5gs-udmd -d &
-            ./open5gs-pcfd -d &
-            ./open5gs-nssfd -d &
-            ./open5gs-bsfd -d &
-            ./open5gs-udrd -d &
-            ./open5gs-scpd -d &
+            ./open5gs-nrfd  &
+            ./open5gs-ausfd  &
+            ./open5gs-udmd  &
+            ./open5gs-pcfd  &
+            ./open5gs-nssfd  &
+            ./open5gs-bsfd  &
+            ./open5gs-udrd  &
+            ./open5gs-scpd  &
+            ./open5gs-idsfd &
             exit;;
         s) # stop open5gs
             echo "Killing open5gs NF"
