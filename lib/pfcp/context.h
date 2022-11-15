@@ -220,6 +220,11 @@ typedef struct ogs_pfcp_far_s {
     ogs_pfcp_outer_header_creation_t outer_header_creation;
     int                     outer_header_creation_len;
 
+    // linh le - add dupl param to far;
+    ogs_pfcp_interface_t    dupl_dst_if;
+    ogs_pfcp_outer_header_creation_t dupl_outer_header_creation;
+    int                     dupl_outer_header_creation_len;
+
     ogs_pfcp_smreq_flags_t  smreq_flags;
 
     uint32_t                num_of_buffered_packet;

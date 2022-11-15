@@ -449,6 +449,10 @@ static struct {
     char dnn[OGS_MAX_DNN_LEN+1];
 } farbuf[OGS_MAX_NUM_OF_FAR];
 
+static struct {
+    ogs_pfcp_outer_header_creation_t outer_header_creation;
+} dupbuf[OGS_MAX_NUM_OF_FAR];
+
 void ogs_pfcp_build_create_far(
     ogs_pfcp_tlv_create_far_t *message, int i, ogs_pfcp_far_t *far)
 {
@@ -496,6 +500,27 @@ void ogs_pfcp_build_create_far(
         ogs_assert(sess->bar);
         message->bar_id.presence = 1;
         message->bar_id.u8 = sess->bar->id;
+    } 
+    // linh le - add build message for apply action duplicating
+    ogs_info("LINHLE - create far, add dupl param");
+    if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL) {
+        message->duplicating_parameters.presence = 1;
+        message->duplicating_parameters.destination_interface.presence = 1;
+        message->duplicating_parameters.destination_interface.u8 = far->dupl_dst_if;
+
+        if (far->dupl_outer_header_creation_len) {
+            memcpy(&dupbuf[i].outer_header_creation,
+                &far->dupl_outer_header_creation, far->dupl_outer_header_creation_len);
+            dupbuf[i].outer_header_creation.teid =
+                    htobe32(far->dupl_outer_header_creation.teid);
+            
+            message->duplicating_parameters.outer_header_creation.presence = 1;
+            message->duplicating_parameters.outer_header_creation.data =
+                    &dupbuf[i].outer_header_creation;
+            message->duplicating_parameters.outer_header_creation.len =
+                    far->dupl_outer_header_creation_len;
+            
+        }
     }
 }
 
@@ -572,6 +597,27 @@ void ogs_pfcp_build_update_far_activate(
             message->update_forwarding_parameters.pfcpsmreq_flags.presence = 1;
             message->update_forwarding_parameters.pfcpsmreq_flags.u8 =
                 far->smreq_flags.value;
+        }
+    }
+
+    if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL){
+        ogs_info("LINHLE - add dulp param when modifying far");
+        message->update_duplicating_parameters.presence = 1;
+        message->update_duplicating_parameters.destination_interface.presence = 1;
+        message->update_duplicating_parameters.destination_interface.u8 = far->dupl_dst_if;
+
+        if (far->dupl_outer_header_creation_len) {
+            memcpy(&dupbuf[i].outer_header_creation,
+                &far->dupl_outer_header_creation, far->dupl_outer_header_creation_len);
+            dupbuf[i].outer_header_creation.teid =
+                    htobe32(far->dupl_outer_header_creation.teid);
+            
+            message->update_duplicating_parameters.outer_header_creation.presence = 1;
+            message->update_duplicating_parameters.outer_header_creation.data =
+                    &dupbuf[i].outer_header_creation;
+            message->update_duplicating_parameters.outer_header_creation.len =
+                    far->dupl_outer_header_creation_len;
+            
         }
     }
 }

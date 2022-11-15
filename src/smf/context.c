@@ -1871,9 +1871,14 @@ smf_bearer_t *smf_qos_flow_add(smf_sess_t *sess)
     dl_far->dst_if = OGS_PFCP_INTERFACE_ACCESS;
     ogs_pfcp_pdr_associate_far(dl_pdr, dl_far);
 
+    // linh le - add apply action DULP for all FAR in all PDR
+    ogs_info("LINHLE - DULP flag to default DL FAR");
     dl_far->apply_action =
-        OGS_PFCP_APPLY_ACTION_BUFF| OGS_PFCP_APPLY_ACTION_NOCP;
+        OGS_PFCP_APPLY_ACTION_BUFF| OGS_PFCP_APPLY_ACTION_NOCP | OGS_PFCP_APPLY_ACTION_DUPL ;
     ogs_assert(sess->pfcp.bar);
+
+    // linh le - add dulp param to DL FAR;
+    dl_far->dupl_dst_if = OGS_PFCP_INTERFACE_CP_FUNCTION;
 
     ul_far = ogs_pfcp_far_add(&sess->pfcp);
     ogs_assert(ul_far);
@@ -1886,7 +1891,34 @@ smf_bearer_t *smf_qos_flow_add(smf_sess_t *sess)
     ul_far->dst_if = OGS_PFCP_INTERFACE_CORE;
     ogs_pfcp_pdr_associate_far(ul_pdr, ul_far);
 
-    ul_far->apply_action = OGS_PFCP_APPLY_ACTION_FORW;
+    // linh le - add apply action DULP for all FAR in all PDR
+    ogs_info("LINHLE - DULP flag to default DL FAR");
+    ul_far->apply_action = OGS_PFCP_APPLY_ACTION_FORW | OGS_PFCP_APPLY_ACTION_DUPL;
+
+    // linh le - add dulp param to UL FAR;
+    ul_far->dupl_dst_if  = OGS_PFCP_INTERFACE_CP_FUNCTION;
+    
+    // linh le - add outer header creation contain IDSF IPv4 for DL,UL FAR
+    ogs_ip_t idsf_ipv4;
+    idsf_ipv4.ipv4 = 1;
+
+    char idsf_ipv4_str[] = "127.0.0.25";   
+    ogs_assert(OGS_OK ==
+                ogs_ipv4_from_string(&(idsf_ipv4.addr),idsf_ipv4_str));
+
+    ogs_assert(OGS_OK ==
+        ogs_pfcp_ip_to_outer_header_creation(
+            &idsf_ipv4,
+            &dl_far->dupl_outer_header_creation,
+            &dl_far->dupl_outer_header_creation_len));
+    dl_far->dupl_outer_header_creation.teid = sess->index;
+
+    ogs_assert(OGS_OK ==
+        ogs_pfcp_ip_to_outer_header_creation(
+            &idsf_ipv4,
+            &ul_far->dupl_outer_header_creation,
+            &ul_far->dupl_outer_header_creation_len));
+    ul_far->dupl_outer_header_creation.teid = sess->index;
 
     /* URR */
     urr = ogs_pfcp_urr_add(&sess->pfcp);
@@ -2170,7 +2202,27 @@ void smf_sess_create_cp_up_data_forwarding(smf_sess_t *sess)
     up2cp_far->dst_if = OGS_PFCP_INTERFACE_CP_FUNCTION;
     ogs_pfcp_pdr_associate_far(up2cp_pdr, up2cp_far);
 
-    up2cp_far->apply_action = OGS_PFCP_APPLY_ACTION_FORW;
+    // linh le - add apply action DULP for all FAR in all PDR
+     ogs_info("LINHLE - DULP flag to UP2CP FAR");
+    up2cp_far->apply_action = OGS_PFCP_APPLY_ACTION_FORW | OGS_PFCP_APPLY_ACTION_DUPL;
+
+    // linh le - add dupl dst to up2cp far
+    up2cp_far->dupl_dst_if = OGS_PFCP_INTERFACE_CP_FUNCTION;
+
+     // linh le - add outer header creation contain IDSF IPv4 for UP2CP FAR
+    ogs_ip_t idsf_ipv4;
+    idsf_ipv4.ipv4 = 1;
+
+    char idsf_ipv4_str[] = "127.0.0.25";   
+    ogs_assert(OGS_OK ==
+                ogs_ipv4_from_string(&(idsf_ipv4.addr),idsf_ipv4_str));
+
+    ogs_assert(OGS_OK ==
+        ogs_pfcp_ip_to_outer_header_creation(
+            &idsf_ipv4,
+            &up2cp_far->dupl_outer_header_creation,
+            &up2cp_far->dupl_outer_header_creation_len));
+    up2cp_far->dupl_outer_header_creation.teid = sess->index;
 
     if (qos_flow->qer && qos_flow->qfi) {
         /* To match the PDI of UP2CP_PDR(from ff02::2/128 to assigned)
