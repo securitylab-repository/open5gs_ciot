@@ -237,6 +237,7 @@ typedef struct ogs_pfcp_far_s {
     /* Related Context */
     ogs_pfcp_sess_t         *sess;
     void                    *gnode;
+    void                    *dupl_gnode;
 } ogs_pfcp_far_t;
 
 typedef struct ogs_pfcp_urr_s {
@@ -390,6 +391,8 @@ ogs_gtpu_resource_t *ogs_pfcp_find_gtpu_resource(ogs_list_t *list,
         char *dnn, ogs_pfcp_interface_t source_interface);
 int ogs_pfcp_setup_far_gtpu_node(ogs_pfcp_far_t *far);
 int ogs_pfcp_setup_pdr_gtpu_node(ogs_pfcp_pdr_t *pdr);
+
+int ogs_pfcp_setup_far_dupl_gtpu_node(ogs_pfcp_far_t *far);
 
 void ogs_pfcp_sess_clear(ogs_pfcp_sess_t *sess);
 

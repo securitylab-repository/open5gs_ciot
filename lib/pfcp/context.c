@@ -778,6 +778,35 @@ int ogs_pfcp_setup_far_gtpu_node(ogs_pfcp_far_t *far)
     return OGS_OK;
 }
 
+// linh le - add setup gnode for duplication
+int ogs_pfcp_setup_far_dupl_gtpu_node(ogs_pfcp_far_t *far) {
+    int rv;
+    ogs_ip_t dupl_ip;
+    ogs_gtp_node_t *dupl_gnode = NULL;
+
+    ogs_assert(far);
+
+    ogs_pfcp_outer_header_creation_to_ip(&far->dupl_outer_header_creation, &dupl_ip);
+
+    /* No Outer Header Creation */
+    if (dupl_ip.len == 0) return OGS_DONE;
+
+    dupl_gnode = ogs_gtp_node_find_by_ip(&ogs_gtp_self()->gtpu_peer_list, &dupl_ip);
+    if (!dupl_gnode) {
+        dupl_gnode = ogs_gtp_node_add_by_ip(
+            &ogs_gtp_self()->gtpu_peer_list, &dupl_ip, ogs_gtp_self()->gtpu_port);
+        ogs_expect_or_return_val(dupl_gnode, OGS_ERROR);
+
+        rv = ogs_gtp_connect(
+                ogs_gtp_self()->gtpu_sock, ogs_gtp_self()->gtpu_sock6, dupl_gnode);
+        ogs_expect_or_return_val(rv == OGS_OK, rv);
+    }
+
+    do { ogs_assert((far)); ogs_assert((dupl_gnode)); (far)->dupl_gnode = dupl_gnode; } while(0);
+
+    return OGS_OK;
+}
+
 int ogs_pfcp_setup_pdr_gtpu_node(ogs_pfcp_pdr_t *pdr)
 {
     int rv;
