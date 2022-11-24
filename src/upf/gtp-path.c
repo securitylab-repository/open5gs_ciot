@@ -182,6 +182,19 @@ static void _gtpv1_tun_recv_common_cb(
     ogs_assert(true == ogs_pfcp_up_handle_pdr(
                 pdr, OGS_GTPU_MSGTYPE_GPDU, recvbuf, &report));
 
+    far = pdr->far;
+    //linh le - add DUPL check for UP N3 and process similar as FORW
+    if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL) {
+        if (!far->dupl_gnode) {
+            ogs_error("No Outer Header Creation/DUPL gnode in FAR");
+            goto cleanup;
+        }
+
+        ogs_assert(true == ogs_pfcp_up_handle_dupl_in_pdr(
+                    pdr, OGS_GTPU_MSGTYPE_GPDU, recvbuf));
+
+    }
+
     if (report.type.downlink_data_report) {
         ogs_assert(pdr->sess);
         sess = UPF_SESS(pdr->sess);
@@ -605,6 +618,18 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
         } else {
             ogs_fatal("Not implemented : FAR-DST_IF[%d]", far->dst_if);
             ogs_assert_if_reached();
+        }
+
+        //linh le - add DUPL check for UP N3 and process similar as FORW
+        if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL) {
+            if (!far->dupl_gnode) {
+                ogs_error("No Outer Header Creation/DUPL gnode in FAR");
+                goto cleanup;
+            }
+
+            ogs_assert(true == ogs_pfcp_up_handle_dupl_in_pdr(
+                        pdr, gtp_h->type, pkbuf));
+
         }
     } else {
         ogs_error("[DROP] Invalid GTPU Type [%d]", gtp_h->type);
