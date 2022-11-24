@@ -110,6 +110,10 @@ void upf_n4_handle_session_establishment_request(
         ogs_assert(OGS_ERROR != ogs_pfcp_setup_far_gtpu_node(far));
         if (far->gnode)
             ogs_pfcp_far_f_teid_hash_set(far);
+
+        // linh le - setup gtp node for duplicate
+        if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL)
+            ogs_assert(OGS_ERROR != ogs_pfcp_setup_far_dupl_gtpu_node(far));
     }
 
     for (i = 0; i < num_of_created_pdr; i++) {
