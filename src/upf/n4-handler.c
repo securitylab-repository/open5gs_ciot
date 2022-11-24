@@ -368,6 +368,11 @@ void upf_n4_handle_session_modification_request(
         ogs_assert(OGS_ERROR != ogs_pfcp_setup_far_gtpu_node(far));
         if (far->gnode)
             ogs_pfcp_far_f_teid_hash_set(far);
+            
+        // linh le - setup gtp node for duplicate
+        // currently, not needed because gnode is created when session established
+        // if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL)
+        //     ogs_assert(OGS_ERROR != ogs_pfcp_setup_far_dupl_gtpu_node(far));
     }
 
     /* Setup UPF-N3-TEID & QFI Hash */
