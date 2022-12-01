@@ -1023,6 +1023,32 @@ ogs_pfcp_far_t *ogs_pfcp_handle_update_far(ogs_pfcp_sess_t *sess,
         }
     }
 
+    /* linh le
+    # Currently unnessary because dupl_node is created when session establish
+    # We only update duplicating parameters when changing duplicate destination 
+    # (currently only duplicating to IDSF)
+    
+    if (message->update_duplicating_parameters.presence){
+        if (message->update_duplicating_parameters.destination_interface.presence) {
+            far->dupl_dst_if = message->update_duplicating_parameters.destination_interface.u8;
+        }
+
+        if (message->update_duplicating_parameters.outer_header_creation.presence) {
+            ogs_pfcp_tlv_outer_header_creation_t *dupl_outer_header_creation =
+                &message->update_duplicating_parameters.outer_header_creation;
+            
+            ogs_assert(dupl_outer_header_creation->data);
+            ogs_assert(dupl_outer_header_creation->len);
+
+            memcpy(&far->dupl_outer_header_creation, dupl_outer_header_creation->data,
+                    ogs_min(sizeof(far->dupl_outer_header_creation),
+                            dupl_outer_header_creation->len));
+            far->dupl_outer_header_creation.teid =
+                    be32toh(far->dupl_outer_header_creation.teid);
+        }
+    }
+    */
+
     return far;
 }
 
