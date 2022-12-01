@@ -600,8 +600,9 @@ void ogs_pfcp_build_update_far_activate(
         }
     }
 
+    //linh le - add dupl param when activate FAR
     if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL){
-        ogs_info("LINHLE - add dulp param when modifying far");
+        ogs_info("LINHLE - add dulp param when activate far");
         message->update_duplicating_parameters.presence = 1;
         message->update_duplicating_parameters.destination_interface.presence = 1;
         message->update_duplicating_parameters.destination_interface.u8 = far->dupl_dst_if;

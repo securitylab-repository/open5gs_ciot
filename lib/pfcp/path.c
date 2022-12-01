@@ -365,7 +365,7 @@ void ogs_pfcp_send_dupl_g_pdu(
     memset(&ext_hdesc, 0, sizeof(ext_hdesc));
 
     gtp_hdesc.type = type;
-    gtp_hdesc.teid = far->outer_header_creation.teid;
+    gtp_hdesc.teid = far->dupl_outer_header_creation.teid;
     if (pdr->qer && pdr->qer->qfi)
         ext_hdesc.qos_flow_identifier = pdr->qer->qfi;
 
