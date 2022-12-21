@@ -7,6 +7,7 @@
 
 #include "sbi-path.h"
 
+
 static ogs_thread_t *thread;
 static void idsf_main(void *data);
 static int initialized = 0;
@@ -15,12 +16,15 @@ int idsf_initialize()
 {
     int rv;
 
+    // ogs_gtp_context_init(OGS_MAX_NUM_OF_GTPU_RESOURCE);
+
     ogs_sbi_context_init();
   
     // context.c
     idsf_context_init();
-    // event.c
-    // idsf_event_init();
+
+    // rv = ogs_gtp_xact_init();
+    // if (rv != OGS_OK) return rv;
 
     //announce nrf - need check
     rv = ogs_sbi_context_parse_config("idsf", "nrf","scp");
@@ -33,6 +37,9 @@ int idsf_initialize()
     rv = ogs_log_config_domain(
             ogs_app()->logger.domain, ogs_app()->logger.level);
     if (rv != OGS_OK) return rv;
+
+    // rv = idsf_gtp_open();
+    // if (rv != OGS_OK) return rv;
 
     // sbi-path.c
     rv = idsf_sbi_open();
@@ -80,13 +87,16 @@ void idsf_terminate(void)
 
     //sbi-path.c
     idsf_sbi_close();
+    // idsf_gtp_close();
 
     // context.c
     idsf_context_final();
-    ogs_sbi_context_final();
 
-    // event.c
-    // idsf_event_final(); /* Destroy event */
+    ogs_sbi_context_final();
+    // ogs_gtp_context_final();
+
+    // ogs_gtp_xact_final();
+
 }
 
 // based on pcf/init.c
@@ -130,12 +140,10 @@ static void idsf_main(void *data)
 
             ogs_assert(e);
             ogs_fsm_dispatch(&idsf_sm, e);
-            // need creation in event.c
             ogs_event_free(e);
         }
     }
 done:
 
     ogs_fsm_fini(&idsf_sm, 0);
-    // ogs_fsm_delete(&idsf_sm);
 }

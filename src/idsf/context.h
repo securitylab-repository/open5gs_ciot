@@ -28,22 +28,24 @@ typedef struct idsf_context_s {
     int dummy;
 } idsf_context_t;
 
-// for notify NRF
-// #define IDSF_NF_INSTANCE_CLEAR(_cAUSE, _nFInstance) \
-//     do { \
-//         ogs_assert(_nFInstance); \
-//         if ((_nFInstance)->reference_count == 1) { \
-//             ogs_info("[%s] (%s) NF removed", (_nFInstance)->id, (_cAUSE)); \
-//             idsf_nf_fsm_fini((_nFInstance)); \
-//         } else { \
-//             /* There is an assocation with other context */ \
-//             ogs_info("[%s:%d] (%s) NF suspended", \
-//                     _nFInstance->id, _nFInstance->reference_count, (_cAUSE)); \
-//             OGS_FSM_TRAN(&_nFInstance->sm, idsf_nf_state_de_registered); \
-//             ogs_fsm_dispatch(&_nFInstance->sm, NULL); \
-//         } \
-//         ogs_sbi_nf_instance_remove(_nFInstance); \
-//     } while(0)
+/*
+for notify NRF
+#define IDSF_NF_INSTANCE_CLEAR(_cAUSE, _nFInstance) \
+    do { \
+        ogs_assert(_nFInstance); \
+        if ((_nFInstance)->reference_count == 1) { \
+            ogs_info("[%s] (%s) NF removed", (_nFInstance)->id, (_cAUSE)); \
+            idsf_nf_fsm_fini((_nFInstance)); \
+        } else { \
+            // There is an assocation with other context \
+            ogs_info("[%s:%d] (%s) NF suspended", \
+                    _nFInstance->id, _nFInstance->reference_count, (_cAUSE)); \
+            OGS_FSM_TRAN(&_nFInstance->sm, idsf_nf_state_de_registered); \
+            ogs_fsm_dispatch(&_nFInstance->sm, NULL); \
+        } \
+        ogs_sbi_nf_instance_remove(_nFInstance); \
+    } while(0)
+*/
 
 void idsf_context_init(void);
 void idsf_context_final(void);

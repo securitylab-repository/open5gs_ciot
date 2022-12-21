@@ -32,10 +32,10 @@ void idsf_state_operational(ogs_fsm_t *s, idsf_event_t *e)
     ogs_sbi_response_t *response = NULL;
     ogs_sbi_message_t message;
 
-    ogs_sbi_object_t *sbi_object = NULL;
+    // ogs_sbi_object_t *sbi_object = NULL;
     ogs_sbi_xact_t *sbi_xact = NULL;
 
-    ogs_sbi_service_type_e service_type = OGS_SBI_SERVICE_TYPE_NULL;
+    // ogs_sbi_service_type_e service_type = OGS_SBI_SERVICE_TYPE_NULL;
     
     idsf_sm_debug(e);
 
