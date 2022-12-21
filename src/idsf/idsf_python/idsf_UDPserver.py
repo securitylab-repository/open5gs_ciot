@@ -1,7 +1,14 @@
 import socket
 from hexdump import hexdump
-# from scapy.all import *
+from scapy.all import ls,raw
 from scapy.contrib.gtp import GTPHeader
+import random
+
+def AImodel_Detect_Abnormal(raw_packet):
+    return random.randrange(2)
+
+def idsf_nsmf_send_session_release(ss_context_id):
+    return True
 
 maxMessageSize = 65507
 UDP_IP = "127.0.0.25"
@@ -18,7 +25,17 @@ while True:
     # print("received",len(data)," bytes")
     # print(data.hex())
     # hexdump(data)
-    GTPHeader(data).show()
-    
+    gtp_packet = GTPHeader(data)
+    # print("TEID",gtp_packet.teid)
+    ss_context_ref = gtp_packet.teid
+    ip_packet = gtp_packet.payload.payload
+
+    ip_raw = raw(ip_packet)
+    res = AImodel_Detect_Abnormal(ip_raw)
+
+    if res:
+        response = idsf_nsmf_send_session_release(ss_context_ref)
+
+
 
 
