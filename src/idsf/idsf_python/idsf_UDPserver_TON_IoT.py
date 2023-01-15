@@ -8,6 +8,7 @@ from scapy.layers.dns import DNS,DNSQR
 from scapy.layers.dhcp import DHCP
 from scapy.layers.tls.record import TLS
 from scapy.layers.tls.handshake import TLSServerHello
+from scapy.contrib.mqtt import MQTT
 
 import time
 ################################################################
@@ -31,6 +32,17 @@ sock.bind((UDP_IP, UDP_PORT))
 print("binding to ip %s port %d" % (UDP_IP, UDP_PORT))
 
 ################################################################
+# load IP dict
+import json
+import os.path
+
+stat_file = 'stat_data.json' 
+if os.path.exists(stat_file):
+    with open(stat_file,'r') as file:
+        stat_dict = json.load(file)
+else:
+    stat_dict = {}
+
 #load feature names
 featurenamefile = 'Feature_name.dat'
 with open(featurenamefile) as file:
@@ -46,6 +58,15 @@ modelfile = 'IDSF_model.pickle'
 with open(modelfile,'rb') as file:
     loaded_model = pickle.load(file)
 file.close()
+
+# save function before exit
+import atexit
+def exit_handler():
+    with open(stat_file, "w") as fp:
+        json.dump(stat_dict,fp)
+    print('Dumped stat before exit')
+
+atexit.register(exit_handler)
 
 ################################################################
 import re
@@ -64,21 +85,21 @@ def uri_feature_extract(uri_str):
 
     uri_param = uri_str.split('?')
     uri_only = uri_param[0]
-    uri_len = len(uri_only) 
+    uri_len = len(uri_only) / 765
     uri_only = uri_only.split('/')
-    uri_num = len(uri_only)
+    uri_num = len(uri_only) / 14.0
     if uri_len == 1:
         uri_type = 0
     elif any(bool(re.fullmatch(r'^[a-zA-Z0-9\.\_\-]*$',i))==False for i in uri_only) :
         uri_type = 2
     else:
         uri_type = 1
-    uri_maxlen = len(max(uri_only, key=len))
+    uri_maxlen = len(max(uri_only, key=len)) /764.0
 
     param_only = ('').join(uri_param[1:])
-    param_len = len(param_only)
+    param_len = len(param_only) /117.0
     param_only = param_only.split('&')
-    param_num = len(param_only)
+    param_num = len(param_only) /4.0
 
     nametype = 0
     name_maxlen = 0
@@ -104,6 +125,11 @@ def uri_feature_extract(uri_str):
                 valuetype = 2
             else:
                 valuetype = 1        
+    name_maxlen /= 16.0
+    value_maxlen /= 86.0
+    digit_percent /= 0.6705882352941176
+    letter_percent /= 0.875
+    unknown /= 251.0
 
     return [uri_len,uri_num,uri_maxlen,param_len,param_num,name_maxlen, \
             value_maxlen,digit_percent,letter_percent,unknown,uri_type,nametype,valuetype]
@@ -118,34 +144,38 @@ def dns_feature_extract(dns_query):
         return [0]*14
     dnslen = len(dns_query)
     ext = tldextract.extract(dns_query)
-    domain_len = len(ext.domain)
-    subdomain_len = len(ext.subdomain)
+    domain_len = len(ext.domain) / 57
+    subdomain_len = len(ext.subdomain) / 66
     labels = dns_query.split('.')
-    label_no = len(labels)
-    label_maxlen = len(max(labels,key=len))
+    label_no = len(labels) / 34
+    label_maxlen = len(max(labels,key=len)) / 57
     char_label = any(len(l) == 1 for l in labels)
     www = 'www' in labels
     alpha_set = set(dns_query)
     alpha_len = 0
-    alpha_len = sum(c.isalpha() for c in alpha_set)
-    upper_no = sum(c.isupper() for c in dns_query)
+    alpha_len = sum(c.isalpha() for c in alpha_set) / 23
+    upper_no = sum(c.isupper() for c in dns_query) / 14
     digit_ratio = sum(c.isdigit() for c in dns_query)/dnslen
-    vowel = ['aeiouy']
-    vowel_ratio = sum(c in vowel for c in dns_query)/dnslen
+    digit_ratio = digit_ratio / 0.5
+    vowel = 'aeiouy'
+    vowel_ratio = sum(c in vowel for c in dns_query) / dnslen
     under_ratio = sum(c == '-' or c=='_' for c in dns_query)/dnslen
+    under_ratio = under_ratio / 0.14285714285714285
     repeat_ratio = sum(dns_query.count(c)>1 for c in alpha_set)/dnslen
+    repeat_ratio = repeat_ratio/0.5
     rep_conso_ratio = sum(1 if (c.isalpha() and c not in vowel) 
                                 and ( (i-1 >=0 and dns_query[i-1].isalpha() and dns_query[i-1] not in vowel) 
                                     or (i+1 < dnslen and dns_query[i+1].isalpha() and dns_query[i+1] not in vowel) ) 
                             else 0 for i,c in enumerate(dns_query))/dnslen
     rep_digit_ratio = sum(1 if c.isdigit() and ((i-1 >=0 and dns_query[i-1].isdigit()) or (i+1 < dnslen and dns_query[i+1].isdigit())) else 0 for i,c in enumerate(dns_query))/dnslen
-    
+    rep_digit_ratio /= 0.49122807017543857
+
     return [domain_len,subdomain_len,label_no,label_maxlen,char_label,www,alpha_len,upper_no,digit_ratio,vowel_ratio, \
             under_ratio,repeat_ratio,rep_conso_ratio,rep_digit_ratio]
 
 ################################################################
 
-def ip_packet_to_dataframe(pk,feature_name,duration):
+def ip_packet_to_dataframe(pk,feature_name,duration,stat_dict):
     df = pd.DataFrame(0,index=np.arange(1), columns=feature_name)
     if pk.haslayer(UDP) or pk.haslayer(TCP) or pk.haslayer(DNS):
         df['src_port'] = (pk.payload.sport - 1)/65535
@@ -153,6 +183,20 @@ def ip_packet_to_dataframe(pk,feature_name,duration):
     df['duration'] = duration/93516
     df['src_bytes'] = pk[IP].len / 65535
     # df['dst_bytes'] = 0
+    
+    if pk.src in stat_dict:
+        df['src_pkts'] = stat_dict[pk.src][0]/252181
+        df['src_ip_bytes'] = stat_dict[pk.src][1]/47367248
+    else:
+        df['src_pkts'] = 0
+        df['src_ip_bytes'] = 0
+    if pk.dst in stat_dict:
+        df['dst_pkts'] = stat_dict[pk.dst][0]/313943
+        df['dst_ip_bytes'] = stat_dict[pk.dst][1]/86395523
+    else:
+        df['dst_pkts'] = 0
+        df['dst_ip_bytes'] = 0
+
     
     df['proto_icmp'] = 1 if pk.proto == 1 else 0
     df['proto_tcp'] = 1 if pk.proto == 6 else 0
@@ -319,6 +363,9 @@ from io import StringIO,BytesIO
 import json
 
 ################################################################
+import pycurl
+from io import StringIO,BytesIO 
+import json
 
 def idsf_nsmf_send_session_release(ss_context_id):
     buffer = BytesIO()
@@ -351,7 +398,6 @@ def idsf_nsmf_send_session_release(ss_context_id):
     crl.setopt(pycurl.WRITEDATA, buffer)    
     crl.perform()
     
-
     status_code = crl.getinfo(pycurl.RESPONSE_CODE)
     body = buffer.getvalue()
     print(body.decode('iso-8859-1'))
@@ -360,7 +406,7 @@ def idsf_nsmf_send_session_release(ss_context_id):
     return status_code
 
 ################################################################
-
+# Main Function
 lastpackettime = time.time()
 release = True
 while True:
@@ -372,20 +418,35 @@ while True:
     pkduration = now - lastpackettime
     lastpackettime = now 
 
+    # extract IP packet
     gtp_packet = GTPHeader(data)
     # gtp_packet.show()
     # print("TEID",gtp_packet.teid)
     ss_context_ref = gtp_packet.teid
     if gtp_packet.haslayer(IP)==0:
         continue
-    
     ip_packet = gtp_packet[IP]
-    # ip_packet.show()
-
-    df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration)
-    res = AImodel_Detect_Abnormal(df_packet,loaded_model)
-    print(res)
+    ip_packet.show()
     
+    # record IP packet statistic
+    if ip_packet.src in stat_dict:
+        stat_dict[ip_packet.src][0] += 1
+        stat_dict[ip_packet.src][1] += ip_packet.len
+    else:
+        stat_dict[ip_packet.src] = [1,ip_packet.len]
+
+    # ip_dst = ip_packet.dst
+    # if ip_dst in stat_dict:
+    #     stat_dict[ip_dst][2] += 1
+    #     stat_dict[ip_dst][3] += ip_packet.len
+    # else:
+    #     stat_dict[ip_dst] = [0,0,1,ip_packet.len]
+
+    # df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,stat_dict)
+    # res = AImodel_Detect_Abnormal(df_packet,loaded_model)
+    # print(res)
+    
+    res = [0]
     if res[0]:
         print('Malicious Packet Detected')
         ip_packet.show()
@@ -397,3 +458,5 @@ while True:
     #     print('Send session release request: ',ss_context_ref)
     #     response = idsf_nsmf_send_session_release(ss_context_ref)
         
+
+################################################################
