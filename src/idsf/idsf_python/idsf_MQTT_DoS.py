@@ -56,7 +56,7 @@ import pandas as pd
 import joblib
 
 modelfile = 'IDSF_model_'
-modeltype = 'DT'
+modeltype = 'RBF_SVC'
 modelext = '.joblib'
 filename = modelfile + modeltype + modelext
 loaded_model = joblib.load(filename)
@@ -191,7 +191,7 @@ def idsf_nsmf_send_session_release(ss_context_id):
 
     status_code = crl.getinfo(pycurl.RESPONSE_CODE)
     body = buffer.getvalue()
-    print(body.decode('iso-8859-1'))
+    # print(body.decode())
 
     crl.close()
     return status_code
