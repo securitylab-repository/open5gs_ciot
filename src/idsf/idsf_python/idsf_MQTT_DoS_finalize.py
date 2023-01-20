@@ -225,7 +225,7 @@ fp = 0
 fn = 0
 acc = 0
 
-checkpoint = [1000,2000,4000,8000,16000,32000,64000,128000]
+checkpoint = [1000,2000,4000,8000,16000,32000,64000,128000,256000,512000]
 
 start_time = time.time()
 pk_count = 0
@@ -254,7 +254,7 @@ while True:
     ip_packet = gtp_packet[IP]
 
     ip_src = ip_packet.src
-    label = True if ip_src == atk_ip else False
+    label = False if ip_src == legit_ip else True
 
     df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
     res = AImodel_Detect_Abnormal(df_packet,loaded_model)

@@ -5,3 +5,10 @@ false pos: <_io.TextIOWrapper name='stat_data.json' mode='w' encoding='UTF-8'>
 true neg:  14841
 false neg: 0
 accuracy: 1.0
+20-01-2023 03:14:09 +0100
+packet count: 27856
+true pos:  0
+false pos: 0
+true neg:  2664
+false neg: 25192
+accuracy: 0.09563469270534176
