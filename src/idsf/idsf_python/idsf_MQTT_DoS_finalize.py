@@ -19,7 +19,7 @@ load_layer('tls')
 load_layer('dhcp')
 
 # config
-maxMessageSize = 65000
+maxMessageSize = 1500
 UDP_IP = "127.0.0.25"
 UDP_PORT = 2152
 
@@ -57,7 +57,7 @@ import pandas as pd
 import joblib
 
 modelfile = 'IDSF_model_'
-modeltype = 'RBF_SVC'
+modeltype = 'Neural'
 modelext = '.joblib'
 filename = modelfile + modeltype + modelext
 loaded_model = joblib.load(filename)
@@ -109,9 +109,9 @@ def ip_packet_to_dataframe(pk,feature_name,time_delta,time_rela):
         df['mqtt.len'] = pk[MQTT].len
 
     if pk.haslayer(MQTTConnect):
-        conflags = raw(pk[MQTTConnect])
-        conflags_pos = 2 + pk[MQTTConnect].length + 1
-        df['mqtt.conflags'] = conflags[conflags_pos]
+        # conflags = raw(pk[MQTTConnect])
+        # conflags_pos = 2 + pk[MQTTConnect].length + 1
+        # df['mqtt.conflags'] = conflags[conflags_pos]
         df['mqtt.proto_len'] = pk[MQTTConnect].length
         if pk[MQTTConnect].protoname != '':
             df['mqtt.protoname'] = 1 if pk[MQTTConnect].protoname == "MQTT" else 0.5
@@ -204,15 +204,14 @@ def idsf_nsmf_send_session_release(ss_context_id):
     crl.setopt(pycurl.WRITEDATA, buffer)    
     crl.perform()
     
-
     status_code = crl.getinfo(pycurl.RESPONSE_CODE)
     body = buffer.getvalue()
-    # print(body.decode())
 
     crl.close()
     return status_code
 
 ################################################################
+import traceback
 
 server_ip = '10.45.0.2'
 legit_ip = '10.45.0.3'
@@ -254,10 +253,16 @@ while True:
     ip_packet = gtp_packet[IP]
 
     ip_src = ip_packet.src
-    label = False if ip_src == legit_ip else True
+    label = True if ip_src == atk_ip else False
 
-    df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
-    res = AImodel_Detect_Abnormal(df_packet,loaded_model)
+    try:
+        df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
+        res = AImodel_Detect_Abnormal(df_packet,loaded_model)
+    except Exception as e:
+        ip_packet.show()
+        print(df_packet)
+        traceback.print_exc()
+        break
     # print(res)
 
     if res[0] != 'normal':
@@ -273,12 +278,10 @@ while True:
     
     acc = (tp+tn)/pk_count
     
-    if pk_count in checkpoint:
+    if (pk_count in checkpoint) or (pk_count % 1000 ==0):
         print("checkpoint")
         print(pk_count,acc)
         print(tp,fp,tn,fn)
     
-    if pk_count % 1000 == 0:
-        print(pk_count)
 
 ################################################################

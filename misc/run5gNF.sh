@@ -13,7 +13,7 @@ Help()
 }
 
 run-gNB() {
-  sleep 5
+  sleep 3
   echo "STARING UERANSIM gNB"
   cd ~/phD/UERANSIM_CIOT
   ./build/nr-gnb -c config/open5gs-gnb.yaml &
@@ -58,6 +58,7 @@ while getopts ":hrds" option; do
         s) # stop open5gs
             echo "Killing open5gs NF"
             pkill open5gs
+	    sleep 2
 	    echo "Killing UERANSIM gNB"
 	    pkill nr-gnb
             ;;

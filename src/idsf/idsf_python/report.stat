@@ -12,3 +12,87 @@ false pos: 0
 true neg:  2664
 false neg: 25192
 accuracy: 0.09563469270534176
+20-01-2023 03:22:13 +0100
+packet count: 2163
+true pos:  172
+false pos: 168
+true neg:  1823
+false neg: 0
+accuracy: 0.9223300970873787
+20-01-2023 03:28:24 +0100
+packet count: 3638
+true pos:  968
+false pos: 963
+true neg:  1690
+false neg: 16
+accuracy: 0.730822106131427
+20-01-2023 03:40:53 +0100
+packet count: 6378
+true pos:  1431
+false pos: 1201
+true neg:  3677
+false neg: 68
+accuracy: 0.8010036067116199
+20-01-2023 04:02:12 +0100
+packet count: 1338
+true pos:  0
+false pos: 198
+true neg:  1140
+false neg: 0
+accuracy: 0.852017937219731
+20-01-2023 04:02:34 +0100
+packet count: 107
+true pos:  0
+false pos: 22
+true neg:  84
+false neg: 0
+accuracy: 0.7924528301886793
+20-01-2023 04:04:32 +0100
+packet count: 51
+true pos:  0
+false pos: 14
+true neg:  36
+false neg: 0
+accuracy: 0.72
+20-01-2023 04:07:43 +0100
+packet count: 558
+true pos:  0
+false pos: 120
+true neg:  438
+false neg: 0
+accuracy: 0.7849462365591398
+20-01-2023 04:08:10 +0100
+packet count: 234
+true pos:  0
+false pos: 80
+true neg:  154
+false neg: 0
+accuracy: 0.6581196581196581
+20-01-2023 04:08:17 +0100
+packet count: 0
+true pos:  0
+false pos: 0
+true neg:  0
+false neg: 0
+accuracy: 0
+20-01-2023 04:17:18 +0100
+packet count: 6455
+true pos:  2343
+false pos: 1773
+true neg:  2331
+false neg: 7
+accuracy: 0.72420204524326
+20-01-2023 13:50:40 +0100
+packet count: 1862
+true pos:  413
+false pos: 401
+true neg:  1012
+false neg: 35
+accuracy: 0.7657173562600752
+20-01-2023 14:00:19 +0100
+packet count: 3523
+true pos:  1308
+false pos: 966
+true neg:  1166
+false neg: 82
+accuracy: 0.7024417944349801
