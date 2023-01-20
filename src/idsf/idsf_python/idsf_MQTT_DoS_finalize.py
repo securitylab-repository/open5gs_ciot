@@ -34,6 +34,7 @@ print("binding to ip %s port %d" % (UDP_IP, UDP_PORT))
 # load IP dict
 
 stat_file = 'stat_data.json' 
+report_file = 'report.stat'
 
 import json
 import os.path
@@ -61,11 +62,28 @@ modelext = '.joblib'
 filename = modelfile + modeltype + modelext
 loaded_model = joblib.load(filename)
 
+# before exit handle report
+
 import atexit
 
 def exit_handler():
-    with open(stat_file, "w") as fp:
-        json.dump(stat_dict,fp)
+    with open(stat_file, "w") as file:
+        json.dump(stat_dict,file)
+    strtime = time.strftime("%d-%m-%Y %H:%M:%S %z") + "\n"
+    strpkc = "packet count: " + str(pk_count) + "\n"
+    strtp = "true pos:  " + str(tp) + "\n"
+    strfp = "false pos: " + str(fp) + "\n"
+    strtn = "true neg:  " + str(tn) + "\n"
+    strfn = "false neg: " + str(fn) + "\n"
+    stracc = "accuracy: " + str(acc)+ "\n"
+    with open(report_file,"a") as file:
+        file.write(strtime)
+        file.write(strpkc)
+        file.write(strtp)
+        file.write(strfp)
+        file.write(strtn)
+        file.write(strfn)
+        file.write(stracc)
     print('Dumped stat before exit')
 
 atexit.register(exit_handler)
@@ -196,16 +214,36 @@ def idsf_nsmf_send_session_release(ss_context_id):
 
 ################################################################
 
+server_ip = '10.45.0.2'
+legit_ip = '10.45.0.3'
+atk_ip = '10.45.0.4'
+
+label = False
+tp = 0
+tn = 0
+fp = 0
+fn = 0
+acc = 0
+
+checkpoint = [1000,2000,4000,8000,16000,32000,64000,128000]
+
 start_time = time.time()
-pk_1st = 0
+pk_count = 0
+# release = True
 while True:
     data, addr = sock.recvfrom(maxMessageSize) # buffer size is 65507 bytes
-    print("received",len(data)," bytes")
+    # print(pk_count,"received",len(data)," bytes")
+    
+     # extract IP packet
+    gtp_packet = GTPHeader(data)
+    ss_context_ref = gtp_packet.teid
+    if gtp_packet.haslayer(IP)==0:
+        continue
     
     # pk count
-    if pk_1st == 0:
-        lastpk_time=time.time()  
-        pk_1st += 1      
+    pk_count += 1
+    if pk_count == 1:
+        lastpk_time=time.time()        
 
     # get duration
     now = time.time()
@@ -213,20 +251,34 @@ while True:
     pkduration = now - lastpk_time
     lastpk_time = now 
 
-    # extract IP packet
-    gtp_packet = GTPHeader(data)
-    ss_context_ref = gtp_packet.teid
-    if gtp_packet.haslayer(IP)==0:
-        continue
     ip_packet = gtp_packet[IP]
-    
+
+    ip_src = ip_packet.src
+    label = True if ip_src == atk_ip else False
+
     df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
     res = AImodel_Detect_Abnormal(df_packet,loaded_model)
-    print(res)
+    # print(res)
 
     if res[0] != 'normal':
-        print('Malicious Packet Detected')
-        # print('Send session release request: ',ss_context_ref)
-        # response = idsf_nsmf_send_session_release(ss_context_ref)
+        if label == True:
+            tp+=1
+        else:
+            fp+=1
+    else:
+        if label == False:
+            tn+=1
+        else:
+            fn+=1
+    
+    acc = (tp+tn)/pk_count
+    
+    if pk_count in checkpoint:
+        print("checkpoint")
+        print(pk_count,acc)
+        print(tp,fp,tn,fn)
+    
+    if pk_count % 1000 == 0:
+        print(pk_count)
 
 ################################################################

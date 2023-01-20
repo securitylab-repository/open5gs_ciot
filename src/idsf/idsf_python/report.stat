@@ -1,0 +1,7 @@
+20-01-2023 01:43:49 +0100
+packet count: 14841
+true pos:  0
+false pos: <_io.TextIOWrapper name='stat_data.json' mode='w' encoding='UTF-8'>
+true neg:  14841
+false neg: 0
+accuracy: 1.0
