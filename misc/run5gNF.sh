@@ -25,10 +25,10 @@ cd install/bin
 while getopts ":hrds" option; do
     case $option in
         r) # run normal
-	    echo "STARTING 5G NFs"
+	        echo "STARTING 5G NFs"
             ./open5gs-amfd &
             ./open5gs-smfd &
-            ./open5gs-upfd &
+            ./open5gs-upfd  &
             ./open5gs-nrfd &
             ./open5gs-ausfd &
             ./open5gs-udmd &
@@ -38,7 +38,7 @@ while getopts ":hrds" option; do
             ./open5gs-udrd &
             ./open5gs-scpd &
             ./open5gs-idsfd &
-	    run-gNB
+	        run-gNB
             ;;
         d) # run with debug log level
             ./open5gs-amfd  &
@@ -53,16 +53,16 @@ while getopts ":hrds" option; do
             ./open5gs-udrd  &
             ./open5gs-scpd  &
             ./open5gs-idsfd &
-	    run-gNB
+	        run-gNB
             ;;
         s) # stop open5gs
-            echo "Killing open5gs NF"
+            echo "Killing UERANSIM gNB"
+            pkill nr-gnb
+	    sleep 3
+	    echo "Killing open5gs NF"
             pkill open5gs
-	    sleep 2
-	    echo "Killing UERANSIM gNB"
-	    pkill nr-gnb
             ;;
-	 h|*) # display Help as default behavior
+	    h|*) # display Help as default behavior
             Help
             ;;
         \?) # Invalid option
