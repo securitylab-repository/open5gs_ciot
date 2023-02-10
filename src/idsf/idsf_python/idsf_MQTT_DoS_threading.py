@@ -8,7 +8,20 @@ from scapy.layers.tls.handshake import TLSServerHello
 from scapy.contrib.mqtt import MQTT
 from scapy.contrib.mqtt import *
 
+import numpy as np
+import pandas as pd
+import joblib
+
 import time
+import atexit
+import signal
+import json
+import traceback
+
+import pycurl
+from io import StringIO,BytesIO 
+
+
 ################################################################
 load_layer('http')
 load_layer('dns')
@@ -37,17 +50,14 @@ with open(featurenamefile) as file:
 file.close()
 
 # load model
-import numpy as np
-import pandas as pd
-import joblib
-
 modelfile = 'IDSF_model_'
-modeltypes = ['DT','LSVC','SGDC','RBF_SVC_auto10','RBF_SVC_scale1','RBF_SVC_scale10','Neural']
+# modeltypes = ['DT','LSVC','SGDC','RBF_SVC_auto10','RBF_SVC_scale1','RBF_SVC_scale10','Neural']
+modeltypes = ['RF','XGBoost']
 modelext = '.joblib'
 model_dict = {}
 for modeltype in modeltypes:
     filename = modelfile + modeltype + modelext
-    model_dict['modeltype'] = joblib.load(filename)
+    model_dict[modeltype] = joblib.load(filename)
 
 ################################################################
 
@@ -62,40 +72,61 @@ for modeltype in modeltypes:
                     'FP': 0,
                     'TN': 0,
                     'FN': 0,
-                    'accuracy': 0,
+                    'accuracy': 0 ,
                     'specificity': 0,
                     'sensitivity': 0,
                     'precision': 0,
-                    'F_score': 0}
+                    'F_score': 0 }
     main_stats[modeltype] = model_stats
 
 
 report_file = 'report.dat'
 
-# before exit handle report
+# before exit handle thread terminate, socket close, save stat to report file
 
-import atexit
-import signal
-import json
+def signal_handler(*args):
+    
+    print('Stop processing thread')
+    global stop_AI 
+    stop_AI = True
+    packet_queue.put(None)
+    processThread.join()
+    print('Process thread exited')
+    
+    print('Stop capturing') 
+    global stop_capture
+    stop_capture = True
+    # print('Shutdown and close socket')
+    # sock.shutdown(socket.SHUT_RD)
+    # sock.close()
+    sock.sendto(b'\x00',(UDP_IP, UDP_PORT))
+    captureThread.join()
+    print('Capture thread exited')
 
-def exit_handler():
+    print('Dumping stat:', report_file )
+    global main_stats
     main_stats['end_time'] = time.strftime("%d-%m-%Y %H:%M:%S %z")
     main_stats['packet_count'] = pk_count
-    if label != None:
-        for modeltype in modeltypes:
-            main_stats[modeltype]['accuracy'] = (main_stats[modeltype]['TP'] + main_stats[modeltype]['TN'])/main_stats['packet_count']
+    for modeltype in modeltypes:
+        if main_stats['packet_count'][0] != 0:
+            main_stats[modeltype]['accuracy'] = (main_stats[modeltype]['TP'] + main_stats[modeltype]['TN'])/main_stats['packet_count'][0]
+        if (main_stats[modeltype]['TN']+main_stats[modeltype]['FP']) != 0:
             main_stats[modeltype]['specificity'] = main_stats[modeltype]['TN']/(main_stats[modeltype]['TN']+main_stats[modeltype]['FP'])
+        if (main_stats[modeltype]['TP']+main_stats[modeltype]['FN']) !=0 :
             main_stats[modeltype]['sensitivity'] = main_stats[modeltype]['TP']/(main_stats[modeltype]['TP']+main_stats[modeltype]['FN'])
+        if (main_stats[modeltype]['TP']+main_stats[modeltype]['FP']) != 0:
             main_stats[modeltype]['precision'] = main_stats[modeltype]['TP']/(main_stats[modeltype]['TP']+main_stats[modeltype]['FP'])
+        if (main_stats[modeltype]['precision']+main_stats[modeltype]['sensitivity']) != 0:
             main_stats[modeltype]['F_score'] = (2*main_stats[modeltype]['precision']*main_stats[modeltype]['sensitivity'])/(main_stats[modeltype]['precision']+main_stats[modeltype]['sensitivity'])
     stat_json_str = json.dumps(main_stats) + '\n\n'
     with open(report_file,"a") as file:
         file.write(stat_json_str)
     print('Dumped stat before exit')
 
-atexit.register(exit_handler)
-signal.signal(signal.SIGTERM, exit_handler)
-signal.signal(signal.SIGINT, exit_handler)
+# atexit.register(exit_handler)
+# atexit.register(signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 ################################################################
 
@@ -174,33 +205,24 @@ def ip_packet_to_dataframe(pk,feature_name,time_delta,time_rela):
 
 ################################################################
 
-from collections import Counter
-
 def AImodel_Detect_Abnormal(df,label,model_dict):
     global main_stats
-    preds = []
-    for modeltype, model in model_dict:
-        pred = model.predict(df)
-        preds.append(pred)
+    for modeltype in model_dict:
+        pred = model_dict[modeltype].predict(df)
         if label != None:
-            if pred != 'normal':
-                if pred == label:
+            if pred[0] != 'normal':
+                if pred[0] == label:
                     main_stats[modeltype]['TP'] += 1
                 else:
                     main_stats[modeltype]['FP'] += 1
             else:
-                if pred == label:
+                if pred[0] == label:
                     main_stats[modeltype]['TN'] += 1
                 else:
                     main_stats[modeltype]['FN'] += 1
-    preds = Counter(preds)
-    final_pred,count = preds.most_common()[0]
-    return final_pred
+    return 0
 
 ################################################################
-
-import pycurl
-from io import StringIO,BytesIO 
 
 def idsf_nsmf_send_session_release(ss_context_id):
     buffer = BytesIO()
@@ -240,7 +262,6 @@ def idsf_nsmf_send_session_release(ss_context_id):
     return status_code
 
 ################################################################
-import traceback
 
 server_ip = '10.45.0.2'
 legit_ip = '10.45.0.3'
@@ -248,53 +269,83 @@ atk_ip = '10.45.0.4'
 
 label = None
 
-checkpoint = [1000,2000,4000,8000,16000,32000,64000,128000,256000,512000]
-
 start_time = time.time()
-pk_count = 0
+# total, atk, normal
+pk_count = [0,0,0]
+main_stats['packet_count'] = pk_count
 
 ################################################################
+import threading, queue
 
-# release = True
-while True:
-    data, addr = sock.recvfrom(maxMessageSize) 
-    # print(pk_count,"received",len(data)," bytes")
-    
-     # extract IP packet
-    gtp_packet = GTPHeader(data)
-    ss_context_ref = gtp_packet.teid
-    if gtp_packet.haslayer(IP)==0:
-        continue
-    
-    # pk count
-    pk_count += 1
-    if pk_count == 1:
-        lastpk_time=time.time()        
+stop_capture = False
+packet_queue = queue.Queue()
 
-    # get duration
-    now = time.time()
-    pk_relative_time = (now - start_time) % 1000
-    pkduration = now - lastpk_time
-    lastpk_time = now 
+def capture_packet():
+    global stop_capture
+    while stop_capture == False:
+        # r_able, _, _ = select.select([sock],[],[])
+        # if r_able:
+        data, addr = sock.recvfrom(maxMessageSize)
+        packet_queue.put(data)
+    sock.close()
+    return 0
 
-    # get label
-    ip_packet = gtp_packet[IP]
-    ip_src = ip_packet.src
-    label = 'DoS' if ip_src == atk_ip else 'normal'
+captureThread = Thread(target=capture_packet)
 
-    try:
+stop_AI = False
+
+def process_packet():
+    global stop_AI
+    while stop_AI == False:
+        data = packet_queue.get()
+        if data == None:
+            break
+
+        # extract IP packet
+        gtp_packet = GTPHeader(data)
+        if gtp_packet.haslayer(IP)==0:
+            continue
+        ss_context_ref = gtp_packet.teid
+
+        # pk count
+        pk_count[0] += 1
+        if pk_count[0] == 1:
+            lastpk_time=time.time()        
+
+        # get duration
+        now = time.time()
+        pk_relative_time = (now - start_time) % 1000
+        pkduration = now - lastpk_time
+        lastpk_time = now 
+
+        # get label
+        ip_packet = gtp_packet[IP]
+        label = 'DoS' if ip_packet.src == atk_ip else 'normal'
+        if label == 'normal':
+            pk_count[2] += 1
+        else:
+            pk_count[1] +=1
+
+        # try:
         df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
         res = AImodel_Detect_Abnormal(df_packet,label, model_dict)
-    except Exception as e:
-        ip_packet.show()
-        print(df_packet.shape)
-        for col in df_packet.columns:
-            print(col,' ', df_packet[col])
-        traceback.print_exc()
-        break
-    
-    if (pk_count in checkpoint) or (pk_count % 1000 ==0):
-        strcnt = 'Checkpoint(' + time.strftime("%d-%m-%Y %H:%M:%S %z") + '):' + str(pk_count) + '\n'
-        print(strcnt)
+        # except Exception as e:
+            # ip_packet.show()
+            # print(df_packet.shape)
+            # for col in df_packet.columns:
+            #     print(col,' ', df_packet[col])
+            # traceback.print_exc()
+            # break
+        
+        if ((pk_count[0] % 1000) ==0):
+            strcnt = 'Checkpoint(' + time.strftime("%d-%m-%Y %H:%M:%S %z") + '):'+str(pk_count)+'\n'
+            print(strcnt)
+
+    return 0
+
+processThread = Thread(target=process_packet)
+
+processThread.start()
+captureThread.start()
 
 ################################################################
