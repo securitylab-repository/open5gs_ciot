@@ -43,8 +43,11 @@ print("binding to ip %s port %d" % (UDP_IP, UDP_PORT))
 
 ################################################################
 
+#model folder
+modelfolder = './joseaveleira/'
+
 #load feature names
-featurenamefile = 'Feature_name.dat'
+featurenamefile = modelfolder + 'Feature_name.dat'
 with open(featurenamefile) as file:
     ftnames = [line.rstrip() for line in file]
 file.close()
@@ -56,7 +59,7 @@ modeltypes = ['RF','XGBoost']
 modelext = '.joblib'
 model_dict = {}
 for modeltype in modeltypes:
-    filename = modelfile + modeltype + modelext
+    filename = modelfolder + modelfile + modeltype + modelext
     model_dict[modeltype] = joblib.load(filename)
 
 ################################################################
@@ -210,7 +213,7 @@ def AImodel_Detect_Abnormal(df,label,model_dict):
     for modeltype in model_dict:
         pred = model_dict[modeltype].predict(df)
         if label != None:
-            if pred[0] != 'normal':
+            if pred[0] != 'normal' or pred[0] != 0:
                 if pred[0] == label:
                     main_stats[modeltype]['TP'] += 1
                 else:
