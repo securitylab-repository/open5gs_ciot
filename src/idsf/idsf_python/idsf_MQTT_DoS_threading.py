@@ -44,7 +44,7 @@ print("binding to ip %s port %d" % (UDP_IP, UDP_PORT))
 ################################################################
 
 #model folder
-modelfolder = './joseaveleira/'
+modelfolder = './mqttset/'
 
 #load feature names
 featurenamefile = modelfolder + 'Feature_name.dat'
@@ -55,7 +55,7 @@ file.close()
 # load model
 modelfile = 'IDSF_model_'
 # modeltypes = ['DT','LSVC','SGDC','RBF_SVC_auto10','RBF_SVC_scale1','RBF_SVC_scale10','Neural']
-modeltypes = ['RF','XGBoost']
+modeltypes = ['DT','LSVC','SGDC','Neural','RF','XGBoost']
 modelext = '.joblib'
 model_dict = {}
 for modeltype in modeltypes:
@@ -82,8 +82,7 @@ for modeltype in modeltypes:
                     'F_score': 0 }
     main_stats[modeltype] = model_stats
 
-
-report_file = 'report.dat'
+report_file = modelfolder + 'report.dat'
 
 # before exit handle thread terminate, socket close, save stat to report file
 
@@ -208,12 +207,83 @@ def ip_packet_to_dataframe(pk,feature_name,time_delta,time_rela):
 
 ################################################################
 
+def ip_packet_to_mqttset_dataframe(pk,feature_name,time_delta,time_rela):
+    df = pd.DataFrame(0,index=[0], columns=feature_name)
+    df['tcp.time_delta'] = time_delta
+    if pk.haslayer(TCP):
+        df['tcp.flags'] = int(pk[TCP].flags)    
+        df['tcp.len'] = pk[IP].len
+    
+    if pk.haslayer(MQTT):
+        mqtt_pk = pk[MQTT]
+        hdrflags = raw(mqtt_pk)
+        df['mqtt.dupflag'] = mqtt_pk.DUP
+        df['mqtt.hdrflags'] = hdrflags[0]
+        df['mqtt.len'] = 0 if mqtt_pk.len == None else mqtt_pk.len
+        df['mqtt.msgtype'] = mqtt_pk.type
+        df['mqtt.qos'] = mqtt_pk.QOS
+        df['mqtt.retain'] = mqtt_pk.RETAIN
+        
+        if mqtt_pk.len != 0 and mqtt_pk.haslayer(MQTTConnect):
+            mqtt_con_pk = mqtt_pk[MQTTConnect]
+
+            df['mqtt.conflag.cleansess'] = mqtt_con_pk.cleansess
+            df['mqtt.conflag.passwd'] = mqtt_con_pk.passwordflag
+            df['mqtt.conflag.qos'] = mqtt_con_pk.willQOSflag
+            df['mqtt.conflag.reserved'] = mqtt_con_pk.reserved
+            df['mqtt.conflag.retain'] = mqtt_con_pk.willretainflag
+            df['mqtt.conflag.uname'] = mqtt_con_pk.usernameflag
+            df['mqtt.conflag.willflag'] = mqtt_con_pk.willflag
+            df['mqtt.kalive'] = mqtt_con_pk.klive
+            conflags = mqtt_con_pk.cleansess*2 + mqtt_con_pk.willflag*4 + mqtt_con_pk.willQOSflag*8 \
+                        + mqtt_con_pk.willretainflag*32 + mqtt_con_pk.passwordflag*64 + mqtt_con_pk.usernameflag*128
+            df['mqtt.conflags'] = conflags
+            df['mqtt.proto_len'] = mqtt_con_pk.length
+            if mqtt_con_pk.protoname != '':
+                df['mqtt.protoname'] = 1 if mqtt_con_pk.protoname == "MQTT" else 0
+            else:
+                df['mqtt.protoname'] = 0
+            df['mqtt.ver'] = mqtt_con_pk.protolevel
+            if mqtt_con_pk.willflag:
+                df['mqtt.willtopic_len'] = mqtt_con_pk.wtoplen
+                df['mqtt.willmsg_len'] = mqtt_con_pk.wmsglen
+
+            # if mqtt_con_pk.usernameflag:
+            #     df['mqtt.username_len'] = mqtt_con_pk.userlen
+            # if mqtt_con_pk.passwordflag:
+            #     df['mqtt.passwd_len'] = mqtt_con_pk.passlen
+            # df['mqtt.clientid_len'] = len(mqtt_con_pk.clientId)      
+            
+        if pk.haslayer(MQTTConnack):
+            df['mqtt.conack.flags'] = pk[MQTTConnack].sessPresentFlag
+            df['mqtt.conack.flags.reserved'] = 1 if pk[MQTTConnack].retcode >= 6 else 0
+            df['mqtt.conack.flags.sp'] = pk[MQTTConnack].sessPresentFlag % 2
+            df['mqtt.conack.val'] = pk[MQTTConnack].retcode
+
+        # if pk.haslayer(MQTTPublish):
+        #     df['mqtt.topic_len'] = pk[MQTTPublish].length
+        
+        if pk.haslayer(MQTTSubscribe):
+            if pk.haslayer(MQTTTopic):
+                df['mqtt.sub.qos'] = pk[MQTTTopic].QOS
+                df['mqtt.topic_len'] = pk[MQTTTopic].length
+
+        if pk.haslayer(MQTTSuback):
+            df['mqtt.suback.qos'] = pk[MQTTSuback].retcode
+
+    # print(df)
+    return df
+
+################################################################
+
 def AImodel_Detect_Abnormal(df,label,model_dict):
     global main_stats
     for modeltype in model_dict:
         pred = model_dict[modeltype].predict(df)
         if label != None:
-            if pred[0] != 'normal' or pred[0] != 0:
+            if pred[0] != 0 and pred[0] != 1:
+                print('wrong output')
+            if pred[0] != 0:
                 if pred[0] == label:
                     main_stats[modeltype]['TP'] += 1
                 else:
@@ -223,7 +293,7 @@ def AImodel_Detect_Abnormal(df,label,model_dict):
                     main_stats[modeltype]['TN'] += 1
                 else:
                     main_stats[modeltype]['FN'] += 1
-    return 0
+    return pred[0]
 
 ################################################################
 
@@ -306,7 +376,7 @@ def process_packet():
 
         # extract IP packet
         gtp_packet = GTPHeader(data)
-        if gtp_packet.haslayer(IP)==0:
+        if gtp_packet.haslayer(MQTT)==0:
             continue
         ss_context_ref = gtp_packet.teid
 
@@ -321,22 +391,24 @@ def process_packet():
         pkduration = now - lastpk_time
         lastpk_time = now 
 
-        # get label
+        # get label and count packet.   pk_count= [total, attack, normal]
         ip_packet = gtp_packet[IP]
-        label = 'DoS' if ip_packet.src == atk_ip else 'normal'
-        if label == 'normal':
+        label = 1 if ip_packet.src == atk_ip else 0
+        if label == 0:
             pk_count[2] += 1
         else:
             pk_count[1] +=1
 
         # try:
-        df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
+        # df_packet = ip_packet_to_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
+        df_packet = ip_packet_to_mqttset_dataframe(ip_packet,ftnames,pkduration,pk_relative_time)
         res = AImodel_Detect_Abnormal(df_packet,label, model_dict)
         # except Exception as e:
-            # ip_packet.show()
-            # print(df_packet.shape)
-            # for col in df_packet.columns:
-            #     print(col,' ', df_packet[col])
+        # if res != label :
+        #     ip_packet.show()
+        #     print(df_packet.shape)
+        #     for col in df_packet.columns:
+        #         print(col,' ', df_packet[col])
             # traceback.print_exc()
             # break
         
