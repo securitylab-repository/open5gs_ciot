@@ -1,31 +1,32 @@
 #!/usr/bin/bash
 
+WORKDIR = `pwd`
 # Start open5gs and gnb
 echo "Start open5gs-gnb"
-/home/nlag/phD/open5gs_ciot/misc/run5gNF.sh -r
+./misc/run5gNF.sh -r
 sleep 10s
 
 # Start IDSF
 echo "Start IDSF"
-cd /home/nlag/phD/open5gs_ciot/src/idsf/idsf_python
+cd src/idsf/idsf_python
 python3 idsf_MQTT_DoS_finalize.py &
 sleep 5s
 
-cd ~
+cd WORKDIR
 
-# Check VM
-ping -c 1 192.168.56.5 &> /dev/null
+# Check VM node-red
+ping -c 1 192.168.10.101 &> /dev/null
 while [[ $? != 0 ]]; do
-	ping -c 1 192.168.56.5 &> /dev/null
+	ping -c 1 192.168.10.101 &> /dev/null
 done
-ping -c 1 192.168.56.6 &> /dev/null
+ping -c 1 192.168.10.102 &> /dev/null
 while [[ $? != 0 ]]; do
-	ping -c 1 192.168.56.6 &> /dev/null
+	ping -c 1 192.168.10.102 &> /dev/null
 done
-ping -c 1 192.168.56.7 &> /dev/null
-while [[ $? != 0 ]]; do
-	ping -c 1 192.168.56.7 &> /dev/null
-done
+# ping -c 1 192.168.56.7 &> /dev/null
+# while [[ $? != 0 ]]; do
+# 	ping -c 1 192.168.56.7 &> /dev/null
+# done
 
 
 # ssh vagrant@192.168.56.5 "sleep 5s; date" > test.out  &
