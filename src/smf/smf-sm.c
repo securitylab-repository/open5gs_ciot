@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2023 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -66,7 +66,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
 
     ogs_pfcp_node_t *pfcp_node = NULL;
     ogs_pfcp_xact_t *pfcp_xact = NULL;
-    ogs_pfcp_message_t pfcp_message;
+    ogs_pfcp_message_t *pfcp_message = NULL;
 
     ogs_sbi_stream_t *stream = NULL;
     ogs_sbi_request_t *sbi_request = NULL;
@@ -143,6 +143,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                     OGS_SETUP_GTP_NODE(sess, smf_gnode->gnode);
             }
             if (!sess) {
+                ogs_error("No Session");
                 ogs_gtp2_send_error_message(gtp_xact, 0,
                         OGS_GTP2_CREATE_SESSION_RESPONSE_TYPE,
                         OGS_GTP2_CAUSE_CONTEXT_NOT_FOUND);
@@ -152,9 +153,11 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_fsm_dispatch(&sess->sm, e);
             break;
         case OGS_GTP2_DELETE_SESSION_REQUEST_TYPE:
+            if (!gtp2_message.h.teid_presence) ogs_error("No TEID");
             smf_metrics_inst_global_inc(SMF_METR_GLOB_CTR_S5C_RX_DELETESESSIONREQ);
             smf_metrics_inst_gtp_node_inc(smf_gnode->metrics, SMF_METR_GTP_NODE_CTR_S5C_RX_DELETESESSIONREQ);
             if (!sess) {
+                ogs_error("No Session");
                 ogs_gtp2_send_error_message(gtp_xact, 0,
                         OGS_GTP2_DELETE_SESSION_RESPONSE_TYPE,
                         OGS_GTP2_CAUSE_CONTEXT_NOT_FOUND);
@@ -164,6 +167,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_fsm_dispatch(&sess->sm, e);
             break;
         case OGS_GTP2_MODIFY_BEARER_REQUEST_TYPE:
+            if (!gtp2_message.h.teid_presence) ogs_error("No TEID");
             smf_s5c_handle_modify_bearer_request(
                 sess, gtp_xact, recvbuf, &gtp2_message.modify_bearer_request);
             break;
@@ -188,6 +192,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_fsm_dispatch(&sess->sm, e);
             break;
         case OGS_GTP2_BEARER_RESOURCE_COMMAND_TYPE:
+            if (!gtp2_message.h.teid_presence) ogs_error("No TEID");
             smf_s5c_handle_bearer_resource_command(
                 sess, gtp_xact, &gtp2_message.bearer_resource_command);
             break;
@@ -379,19 +384,27 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
         ogs_assert(pfcp_node);
         ogs_assert(OGS_FSM_STATE(&pfcp_node->sm));
 
-        if (ogs_pfcp_parse_msg(&pfcp_message, recvbuf) != OGS_OK) {
+        /*
+         * Issue #1911
+         *
+         * Because ogs_pfcp_message_t is over 80kb in size,
+         * it can cause stack overflow.
+         * To avoid this, the pfcp_message structure uses heap memory.
+         */
+        if ((pfcp_message = ogs_pfcp_parse_msg(recvbuf)) == NULL) {
             ogs_error("ogs_pfcp_parse_msg() failed");
             ogs_pkbuf_free(recvbuf);
             break;
         }
 
-        rv = ogs_pfcp_xact_receive(pfcp_node, &pfcp_message.h, &pfcp_xact);
+        rv = ogs_pfcp_xact_receive(pfcp_node, &pfcp_message->h, &pfcp_xact);
         if (rv != OGS_OK) {
             ogs_pkbuf_free(recvbuf);
+            ogs_pfcp_message_free(pfcp_message);
             break;
         }
 
-        e->pfcp_message = &pfcp_message;
+        e->pfcp_message = pfcp_message;
         e->pfcp_xact = pfcp_xact;
 
         e->gtp2_message = NULL;
@@ -403,10 +416,10 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
         ogs_fsm_dispatch(&pfcp_node->sm, e);
         if (OGS_FSM_CHECK(&pfcp_node->sm, smf_pfcp_state_exception)) {
             ogs_error("PFCP state machine exception");
-            break;
         }
 
         ogs_pkbuf_free(recvbuf);
+        ogs_pfcp_message_free(pfcp_message);
         break;
     case SMF_EVT_N4_TIMER:
     case SMF_EVT_N4_NO_HEARTBEAT:
@@ -461,7 +474,7 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             CASE(OGS_SBI_RESOURCE_NAME_NF_STATUS_NOTIFY)
                 SWITCH(sbi_message.h.method)
                 CASE(OGS_SBI_HTTP_METHOD_POST)
-                    ogs_nnrf_handle_nf_status_notify(stream, &sbi_message);
+                    ogs_nnrf_nfm_handle_nf_status_notify(stream, &sbi_message);
                     break;
 
                 DEFAULT
@@ -674,10 +687,24 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                 CASE(OGS_SBI_HTTP_METHOD_POST)
                     if (sbi_message.res_status == OGS_SBI_HTTP_STATUS_CREATED ||
                         sbi_message.res_status == OGS_SBI_HTTP_STATUS_OK) {
-                        ogs_nnrf_handle_nf_status_subscribe(
+                        ogs_nnrf_nfm_handle_nf_status_subscribe(
                                 subscription_data, &sbi_message);
                     } else {
                         ogs_error("HTTP response error : %d",
+                                sbi_message.res_status);
+                    }
+                    break;
+
+                CASE(OGS_SBI_HTTP_METHOD_PATCH)
+                    if (sbi_message.res_status == OGS_SBI_HTTP_STATUS_OK ||
+                        sbi_message.res_status ==
+                            OGS_SBI_HTTP_STATUS_NO_CONTENT) {
+                        ogs_nnrf_nfm_handle_nf_status_update(
+                                subscription_data, &sbi_message);
+                    } else {
+                        ogs_error("[%s] HTTP response error [%d]",
+                                subscription_data->id ?
+                                    subscription_data->id : "Unknown",
                                 sbi_message.res_status);
                     }
                     break;
@@ -687,7 +714,9 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
                             OGS_SBI_HTTP_STATUS_NO_CONTENT) {
                         ogs_sbi_subscription_data_remove(subscription_data);
                     } else {
-                        ogs_error("HTTP response error : %d",
+                        ogs_error("[%s] HTTP response error [%d]",
+                                subscription_data->id ?
+                                    subscription_data->id : "Unknown",
                                 sbi_message.res_status);
                     }
                     break;
@@ -793,6 +822,8 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(nf_instance);
             ogs_assert(OGS_FSM_STATE(&nf_instance->sm));
 
+            ogs_sbi_self()->nf_instance->load = get_sess_load();
+
             ogs_fsm_dispatch(&nf_instance->sm, e);
             if (OGS_FSM_CHECK(&nf_instance->sm, ogs_sbi_nf_state_exception))
                 ogs_error("[%s:%s] State machine exception [%d]",
@@ -805,16 +836,61 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
             ogs_assert(subscription_data);
 
             ogs_assert(true ==
-                ogs_nnrf_nfm_send_nf_status_subscribe(subscription_data));
+                ogs_nnrf_nfm_send_nf_status_subscribe(
+                    ogs_sbi_self()->nf_instance->nf_type,
+                    subscription_data->req_nf_instance_id,
+                    subscription_data->subscr_cond.nf_type,
+                    subscription_data->subscr_cond.service_name));
 
-            ogs_info("Subscription validity expired [%s]",
+            ogs_error("[%s] Subscription validity expired",
                 subscription_data->id);
             ogs_sbi_subscription_data_remove(subscription_data);
             break;
 
+        case OGS_TIMER_SUBSCRIPTION_PATCH:
+            subscription_data = e->h.sbi.data;
+            ogs_assert(subscription_data);
+
+            ogs_assert(true ==
+                ogs_nnrf_nfm_send_nf_status_update(subscription_data));
+
+            ogs_info("[%s] Need to update Subscription",
+                    subscription_data->id);
+            break;
+
         case OGS_TIMER_SBI_CLIENT_WAIT:
-            sbi_xact = e->h.sbi.data;
-            ogs_assert(sbi_xact);
+            /*
+             * ogs_pollset_poll() receives the time of the expiration
+             * of next timer as an argument. If this timeout is
+             * in very near future (1 millisecond), and if there are
+             * multiple events that need to be processed by ogs_pollset_poll(),
+             * these could take more than 1 millisecond for processing,
+             * resulting in the timer already passed the expiration.
+             *
+             * In case that another NF is under heavy load and responds
+             * to an SBI request with some delay of a few seconds,
+             * it can happen that ogs_pollset_poll() adds SBI responses
+             * to the event list for further processing,
+             * then ogs_timer_mgr_expire() is called which will add
+             * an additional event for timer expiration. When all events are
+             * processed one-by-one, the SBI xact would get deleted twice
+             * in a row, resulting in a crash.
+             *
+             * 1. ogs_pollset_poll()
+             *    message was received and put into an event list,
+             * 2. ogs_timer_mgr_expire()
+             *    add an additional event for timer expiration
+             * 3. message event is processed. (free SBI xact)
+             * 4. timer expiration event is processed. (double-free SBI xact)
+             *
+             * To avoid double-free SBI xact,
+             * we need to check ogs_sbi_xact_cycle()
+             */
+            sbi_xact = ogs_sbi_xact_cycle(e->h.sbi.data);
+            if (!sbi_xact) {
+                ogs_error("SBI transaction has already been removed");
+                break;
+            }
 
             stream = sbi_xact->assoc_stream;
             /* Here, we should not use ogs_assert(stream)
@@ -853,8 +929,6 @@ void smf_state_operational(ogs_fsm_t *s, smf_event_t *e)
 
         ogs_assert(sess);
         ogs_assert(OGS_FSM_STATE(&sess->sm));
-
-        sess->pti = nas_message.gsm.h.procedure_transaction_identity;
 
         e->nas.message = &nas_message;
         ogs_fsm_dispatch(&sess->sm, e);

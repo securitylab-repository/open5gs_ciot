@@ -27,10 +27,8 @@ int nrf_initialize()
 {
     int rv;
 
-    ogs_sbi_context_init();
-
+    ogs_sbi_context_init(OpenAPI_nf_type_NRF);
     nrf_context_init();
-    nrf_event_init();
 
     rv = ogs_sbi_context_parse_config("nrf", NULL, "scp");
     if (rv != OGS_OK) return rv;
@@ -85,8 +83,6 @@ void nrf_terminate(void)
 
     nrf_context_final();
     ogs_sbi_context_final();
-
-    nrf_event_final(); /* Destroy event */
 }
 
 static void nrf_main(void *data)
@@ -127,7 +123,7 @@ static void nrf_main(void *data)
 
             ogs_assert(e);
             ogs_fsm_dispatch(&nrf_sm, e);
-            nrf_event_free(e);
+            ogs_event_free(e);
         }
     }
 done:

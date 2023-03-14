@@ -146,6 +146,11 @@ typedef struct mme_context_s {
     ogs_hash_t      *imsi_ue_hash;          /* hash table (IMSI : MME_UE) */
     ogs_hash_t      *guti_ue_hash;          /* hash table (GUTI : MME_UE) */
 
+    struct {
+        struct {
+            ogs_time_t value;       /* Timer Value(Seconds) */
+        } t3402, t3412, t3423;
+    } time;
 } mme_context_t;
 
 typedef struct mme_sgw_s {
@@ -280,14 +285,6 @@ struct sgw_ue_s {
     /* UE identity */
     uint32_t        sgw_s11_teid;   /* SGW-S11-TEID is received from SGW */
 
-    /*
-     * If the MME sends Delete-Session-Request to the SGW for all sessions,
-     *    session_context_will_deleted = 1
-     * When the MME receives a Delete-Session-Response for the last session,
-     *    session_context_will_deleted = 0
-     */
-    int             session_context_will_deleted;
-
     /* S11 Holding timer for removing this context */
     ogs_timer_t     *t_s11_holding;
 
@@ -391,6 +388,8 @@ struct mme_ue_s {
     int             security_context_available;
     int             mac_failed;
 
+    bool            location_updated_but_not_canceled_yet;
+
     /* Security Context */
     ogs_nas_ue_network_capability_t ue_network_capability;
     ogs_nas_ms_network_capability_t ms_network_capability;
@@ -470,6 +469,7 @@ struct mme_ue_s {
 #define MME_CLEAR_PAGING_INFO(__mME) \
     do { \
         ogs_assert(__mME); \
+        ogs_debug("[%s] Clear Paging Info", mme_ue->imsi_bcd); \
         (__mME)->paging.type = 0; \
     } while(0)
 
@@ -477,6 +477,7 @@ struct mme_ue_s {
     do { \
         ogs_assert(__mME); \
         ogs_assert(__tYPE); \
+        ogs_debug("[%s] Store Paging Info", mme_ue->imsi_bcd); \
         (__mME)->paging.type = __tYPE; \
         (__mME)->paging.data = __dATA; \
     } while(0)
@@ -510,6 +511,8 @@ struct mme_ue_s {
         CLEAR_MME_UE_TIMER((__mME)->t3450); \
         CLEAR_MME_UE_TIMER((__mME)->t3460); \
         CLEAR_MME_UE_TIMER((__mME)->t3470); \
+        CLEAR_MME_UE_TIMER((__mME)->t_mobile_reachable); \
+        CLEAR_MME_UE_TIMER((__mME)->t_implicit_detach); \
         \
         ogs_list_for_each(&mme_ue->sess_list, sess) { \
             ogs_list_for_each(&sess->bearer_list, bearer) { \
@@ -530,7 +533,8 @@ struct mme_ue_s {
         ogs_pkbuf_t     *pkbuf;
         ogs_timer_t     *timer;
         uint32_t        retry_count;;
-    } t3413, t3422, t3450, t3460, t3470;
+    } t3413, t3422, t3450, t3460, t3470, t_mobile_reachable,
+        t_implicit_detach;
 
 #define CLEAR_SERVICE_INDICATOR(__mME) \
     do { \
@@ -595,19 +599,16 @@ struct mme_ue_s {
 #define SESSION_CONTEXT_IS_AVAILABLE(__mME) \
      ((__mME) && ((__mME)->sgw_ue) && (((__mME)->sgw_ue)->sgw_s11_teid))
 
-#define SESSION_CONTEXT_WILL_DELETED(__mME) \
-     ((__mME) && ((__mME)->sgw_ue) && \
-      (((__mME)->sgw_ue)->session_context_will_deleted))
-
 #define CLEAR_SESSION_CONTEXT(__mME) \
     do { \
         ogs_assert((__mME)); \
         ((__mME)->sgw_ue)->sgw_s11_teid = 0; \
-        ((__mME)->sgw_ue)->session_context_will_deleted = 0; \
     } while(0)
 
 #define ACTIVE_EPS_BEARERS_IS_AVAIABLE(__mME) \
     (mme_ue_have_active_eps_bearers(__mME))
+#define MME_SESSION_RELEASE_PENDING(__mME) \
+    (mme_ue_have_session_release_pending(__mME))
 typedef struct mme_sess_s {
     ogs_lnode_t     lnode;
 
@@ -798,7 +799,6 @@ void mme_ue_new_guti(mme_ue_t *mme_ue);
 void mme_ue_confirm_guti(mme_ue_t *mme_ue);
 
 mme_ue_t *mme_ue_add(enb_ue_t *enb_ue);
-void mme_ue_hash_remove(mme_ue_t *mme_ue);
 void mme_ue_remove(mme_ue_t *mme_ue);
 void mme_ue_remove_all(void);
 mme_ue_t *mme_ue_cycle(mme_ue_t *mme_ue);
@@ -818,6 +818,11 @@ bool mme_ue_have_indirect_tunnel(mme_ue_t *mme_ue);
 void mme_ue_clear_indirect_tunnel(mme_ue_t *mme_ue);
 
 bool mme_ue_have_active_eps_bearers(mme_ue_t *mme_ue);
+bool mme_sess_have_active_eps_bearers(mme_sess_t *sess);
+bool mme_ue_have_session_release_pending(mme_ue_t *mme_ue);
+bool mme_sess_have_session_release_pending(mme_sess_t *sess);
+
+int mme_ue_xact_count(mme_ue_t *mme_ue, uint8_t org);
 
 /*
  * o RECV Initial UE-Message : S-TMSI

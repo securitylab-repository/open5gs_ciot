@@ -51,17 +51,17 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
 
     ogs_assert(s);
 
-    switch (e->id) {
+    switch (e->h.id) {
     case OGS_FSM_ENTRY_SIG:
         break;
 
     case OGS_FSM_EXIT_SIG:
         break;
 
-    case NRF_EVT_SBI_SERVER:
-        request = e->sbi.request;
+    case OGS_EVENT_SBI_SERVER:
+        request = e->h.sbi.request;
         ogs_assert(request);
-        stream = e->sbi.data;
+        stream = e->h.sbi.data;
         ogs_assert(stream);
 
         rv = ogs_sbi_parse_request(&message, request);
@@ -141,7 +141,7 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
                         e->nf_instance = nf_instance;
                         ogs_assert(OGS_FSM_STATE(&nf_instance->sm));
 
-                        e->sbi.message = &message;
+                        e->h.sbi.message = &message;
                         ogs_fsm_dispatch(&nf_instance->sm, e);
                         if (OGS_FSM_CHECK(&nf_instance->sm,
                                     nrf_nf_state_de_registered)) {
@@ -164,6 +164,10 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
                 SWITCH(message.h.method)
                 CASE(OGS_SBI_HTTP_METHOD_POST)
                     nrf_nnrf_handle_nf_status_subscribe(stream, &message);
+                    break;
+
+                CASE(OGS_SBI_HTTP_METHOD_PATCH)
+                    nrf_nnrf_handle_nf_status_update(stream, &message);
                     break;
 
                 CASE(OGS_SBI_HTTP_METHOD_DELETE)
@@ -235,8 +239,8 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
         ogs_sbi_message_free(&message);
         break;
 
-    case NRF_EVT_SBI_TIMER:
-        switch(e->timer_id) {
+    case OGS_EVENT_SBI_TIMER:
+        switch(e->h.timer_id) {
         case NRF_TIMER_NF_INSTANCE_NO_HEARTBEAT:
             nf_instance = e->nf_instance;
             ogs_assert(nf_instance);
@@ -254,14 +258,14 @@ void nrf_state_operational(ogs_fsm_t *s, nrf_event_t *e)
             subscription_data = e->subscription_data;
             ogs_assert(subscription_data);
 
-            ogs_info("[%s] Subscription validity expired",
+            ogs_error("[%s] Subscription validity expired",
                     subscription_data->id);
             ogs_sbi_subscription_data_remove(subscription_data);
             break;
 
         default:
             ogs_error("Unknown timer[%s:%d]",
-                    nrf_timer_get_name(e->timer_id), e->timer_id);
+                    nrf_timer_get_name(e->h.timer_id), e->h.timer_id);
         }
         break;
 

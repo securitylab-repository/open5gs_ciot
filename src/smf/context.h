@@ -56,10 +56,10 @@ typedef enum {
     SMF_CTF_ENABLED_AUTO = 0,
     SMF_CTF_ENABLED_YES,
     SMF_CTF_ENABLED_NO,
-} smf_ctf_enabled_mode;
+} smf_ctf_enabled_mode_e;
 
 typedef struct smf_ctf_config_s {
-    smf_ctf_enabled_mode enabled;
+    smf_ctf_enabled_mode_e enabled;
 } smf_ctf_config_t;
 
 int smf_ctf_config_init(smf_ctf_config_t *ctf_config);
@@ -91,6 +91,13 @@ typedef struct smf_context_s {
     ogs_hash_t      *n1n2message_hash; /* hash table (N1N2Message Location) */
 
     uint16_t        mtu;            /* MTU to advertise in PCO */
+
+    struct  {
+        const char *integrity_protection_indication;
+        const char *confidentiality_protection_indication;
+        const char *maximum_integrity_protected_data_rate_uplink;
+        const char *maximum_integrity_protected_data_rate_downlink;
+    } security_indication;
 
 #define SMF_UE_IS_LAST_SESSION(__sMF) \
      ((__sMF) && (ogs_list_count(&(__sMF)->sess_list)) == 1)
@@ -175,6 +182,7 @@ typedef struct smf_bearer_s {
     ogs_pfcp_urr_t  *urr;
     ogs_pfcp_qer_t  *qer;
 
+#define SMF_IS_QOF_FLOW(__bEARER) ((__bEARER)->qfi_node)
     uint8_t         *qfi_node;      /* Pool-Node for 5GC-QFI */
     uint8_t         qfi;            /* 5G Core QFI */
     uint8_t         ebi;            /* EPC EBI */
@@ -363,6 +371,7 @@ typedef struct smf_sess_s {
 #define SMF_NGAP_STATE_DELETE_TRIGGER_UE_REQUESTED              1
 #define SMF_NGAP_STATE_DELETE_TRIGGER_PCF_INITIATED             2
 #define SMF_NGAP_STATE_ERROR_INDICATION_RECEIVED_FROM_5G_AN     3
+#define SMF_NGAP_STATE_DELETE_TRIGGER_SMF_INITIATED             4
     struct {
         int pdu_session_resource_release;
     } ngap_state;
@@ -511,6 +520,14 @@ void smf_pf_identifier_pool_final(smf_bearer_t *bearer);
 
 void smf_pf_precedence_pool_init(smf_sess_t *sess);
 void smf_pf_precedence_pool_final(smf_sess_t *sess);
+
+int smf_integrity_protection_indication_value2enum(const char *value);
+int smf_confidentiality_protection_indication_value2enum(const char *value);
+int smf_maximum_integrity_protected_data_rate_uplink_value2enum(
+        const char *value);
+int smf_maximum_integrity_protected_data_rate_downlink_value2enum(
+        const char *value);
+int get_sess_load(void);
 
 #ifdef __cplusplus
 }

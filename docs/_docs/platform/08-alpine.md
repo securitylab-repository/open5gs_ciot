@@ -53,7 +53,7 @@ $ ip link show
 
 Install the depedencies for building the source code.
 ```bash
-$ sudo apk add alpine-sdk bison flex git meson bash sudo linux-headers bsd-compat-headers yaml-dev lksctp-tools-dev gnutls-dev libgcrypt-dev libidn-dev mongo-c-driver-dev libmicrohttpd-dev curl-dev nghttp2-dev talloc-dev
+$ sudo apk add alpine-sdk bison flex git cmake meson bash sudo linux-headers bsd-compat-headers yaml-dev lksctp-tools-dev gnutls-dev libgcrypt-dev libidn-dev mongo-c-driver-dev libmicrohttpd-dev curl-dev nghttp2-dev talloc-dev
 ```
 
 Git clone.
@@ -105,7 +105,7 @@ Install the dependencies to run WebUI
 
 ```bash
 $ cd webui
-$ npm ci --no-optional
+$ npm ci
 ```
 
 The WebUI runs as an [npm](https://www.npmjs.com/) script.

@@ -50,7 +50,10 @@ ogs_sbi_request_t *amf_nausf_auth_build_authenticate(
     AuthenticationInfo.supi_or_suci = amf_ue->suci;
     AuthenticationInfo.serving_network_name =
         ogs_serving_network_name_from_plmn_id(&amf_ue->nr_tai.plmn_id);
-    ogs_expect_or_return_val(AuthenticationInfo.serving_network_name, NULL);
+    if (!AuthenticationInfo.serving_network_name) {
+        ogs_error("No serving_network_name");
+        goto end;
+    }
 
     if (auts) {
         memset(&ResynchronizationInfo, 0, sizeof(ResynchronizationInfo));
@@ -70,7 +73,28 @@ ogs_sbi_request_t *amf_nausf_auth_build_authenticate(
     request = ogs_sbi_build_request(&message);
     ogs_expect(request);
 
-    ogs_free(AuthenticationInfo.serving_network_name);
+end:
+    if (AuthenticationInfo.serving_network_name)
+        ogs_free(AuthenticationInfo.serving_network_name);
+
+    return request;
+}
+
+ogs_sbi_request_t *amf_nausf_auth_build_authenticate_delete(
+        amf_ue_t *amf_ue, void *data)
+{
+    ogs_sbi_message_t message;
+    ogs_sbi_request_t *request = NULL;
+
+    ogs_assert(amf_ue);
+    ogs_assert(amf_ue->confirmation_url_for_5g_aka);
+
+    memset(&message, 0, sizeof(message));
+    message.h.method = (char *)OGS_SBI_HTTP_METHOD_DELETE;
+    message.h.uri = amf_ue->confirmation_url_for_5g_aka;
+
+    request = ogs_sbi_build_request(&message);
+    ogs_expect(request);
 
     return request;
 }
@@ -93,7 +117,10 @@ ogs_sbi_request_t *amf_nausf_auth_build_authenticate_confirmation(
     message.h.uri = amf_ue->confirmation_url_for_5g_aka;
 
     ConfirmationData = ogs_calloc(1, sizeof(*ConfirmationData));
-    ogs_expect_or_return_val(ConfirmationData, NULL);
+    if (!ConfirmationData) {
+        ogs_error("No ConfirmationData");
+        goto end;
+    }
 
     ogs_hex_to_ascii(amf_ue->xres_star, sizeof(amf_ue->xres_star),
             xres_star_string, sizeof(xres_star_string));
@@ -105,7 +132,9 @@ ogs_sbi_request_t *amf_nausf_auth_build_authenticate_confirmation(
     request = ogs_sbi_build_request(&message);
     ogs_expect(request);
 
-    ogs_free(ConfirmationData);
+end:
+    if (ConfirmationData)
+        ogs_free(ConfirmationData);
 
     return request;
 }
