@@ -24,13 +24,16 @@
 int amf_nnssf_nsselection_handle_get(
         amf_sess_t *sess, ogs_sbi_message_t *recvmsg)
 {
-    amf_ue_t *amf_ue = NULL;
-
-    ogs_sbi_client_t *client = NULL;
+    bool rc;
+    int r;
+    OpenAPI_uri_scheme_e scheme = OpenAPI_uri_scheme_NULL;
+    ogs_sbi_client_t *client = NULL, *scp_client = NULL;
     ogs_sockaddr_t *addr = NULL;
 
     OpenAPI_authorized_network_slice_info_t *AuthorizedNetworkSliceInfo = NULL;
     OpenAPI_nsi_information_t *NsiInformation = NULL;
+
+    amf_ue_t *amf_ue = NULL;
 
     ogs_assert(sess);
     amf_ue = sess->amf_ue;
@@ -42,34 +45,38 @@ int amf_nnssf_nsselection_handle_get(
     if (recvmsg->res_status != OGS_SBI_HTTP_STATUS_OK) {
         ogs_error("[%s] HTTP response error [%d]",
                 amf_ue->supi, recvmsg->res_status);
-        ogs_assert(OGS_OK ==
-            nas_5gs_send_gmm_status(amf_ue, recvmsg->res_status));
+        r = nas_5gs_send_gmm_status(amf_ue, recvmsg->res_status);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
         return OGS_ERROR;
     }
 
     AuthorizedNetworkSliceInfo = recvmsg->AuthorizedNetworkSliceInfo;
     if (!AuthorizedNetworkSliceInfo) {
         ogs_error("No AuthorizedNetworkSliceInfo");
-        ogs_assert(OGS_OK ==
-            nas_5gs_send_gmm_reject_from_sbi(
-                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR));
+        r = nas_5gs_send_gmm_reject_from_sbi(
+                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
         return OGS_ERROR;
     }
 
     NsiInformation = AuthorizedNetworkSliceInfo->nsi_information;
     if (!NsiInformation) {
         ogs_error("No NsiInformation");
-        ogs_assert(OGS_OK ==
-            nas_5gs_send_gmm_reject_from_sbi(
-                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR));
+        r = nas_5gs_send_gmm_reject_from_sbi(
+                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
         return OGS_ERROR;
     }
 
     if (!NsiInformation->nrf_id) {
         ogs_error("No nrfId");
-        ogs_assert(OGS_OK ==
-            nas_5gs_send_gmm_reject_from_sbi(
-                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR));
+        r = nas_5gs_send_gmm_reject_from_sbi(
+                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
         return OGS_ERROR;
     }
 
@@ -78,28 +85,46 @@ int amf_nnssf_nsselection_handle_get(
     sess->nssf.nrf.id = ogs_strdup(NsiInformation->nrf_id);
     ogs_assert(sess->nssf.nrf.id);
 
-    addr = ogs_sbi_getaddr_from_uri(NsiInformation->nrf_id);
-    if (!addr) {
-        ogs_error("[%s:%d] Invalid URI [%s]",
-                amf_ue->supi, sess->psi, NsiInformation->nrf_id);
-        ogs_assert(OGS_OK ==
-            nas_5gs_send_gmm_reject_from_sbi(
-                amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR));
-        return OGS_ERROR;;
+    scp_client = NF_INSTANCE_CLIENT(ogs_sbi_self()->scp_instance);
+
+    if (scp_client) {
+        amf_nsmf_pdusession_sm_context_param_t param;
+
+        memset(&param, 0, sizeof(param));
+        param.nrf_uri.nrf.id = sess->nssf.nrf.id;
+
+        r = amf_sess_sbi_discover_and_send(
+                OGS_SBI_SERVICE_TYPE_NSMF_PDUSESSION, NULL,
+                amf_nsmf_pdusession_build_create_sm_context,
+                sess, AMF_CREATE_SM_CONTEXT_NO_STATE, &param);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
+    } else {
+        rc = ogs_sbi_getaddr_from_uri(&scheme, &addr, NsiInformation->nrf_id);
+        if (rc == false || scheme == OpenAPI_uri_scheme_NULL) {
+            ogs_error("[%s:%d] Invalid URI [%s]",
+                    amf_ue->supi, sess->psi, NsiInformation->nrf_id);
+            r = nas_5gs_send_gmm_reject_from_sbi(
+                    amf_ue, OGS_SBI_HTTP_STATUS_INTERNAL_SERVER_ERROR);
+            ogs_expect(r == OGS_OK);
+            ogs_assert(r != OGS_ERROR);
+            return OGS_ERROR;;
+        }
+
+        client = ogs_sbi_client_find(scheme, addr);
+        if (!client) {
+            client = ogs_sbi_client_add(scheme, addr);
+            ogs_assert(client);
+        }
+
+        OGS_SBI_SETUP_CLIENT(&sess->nssf.nrf, client);
+        ogs_freeaddrinfo(addr);
+
+        r = amf_sess_sbi_discover_by_nsi(
+                sess, OGS_SBI_SERVICE_TYPE_NSMF_PDUSESSION, NULL);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
     }
-
-    client = ogs_sbi_client_find(addr);
-    if (!client) {
-        client = ogs_sbi_client_add(addr);
-        ogs_assert(client);
-    }
-
-    OGS_SBI_SETUP_CLIENT(&sess->nssf.nrf, client);
-
-    ogs_freeaddrinfo(addr);
-
-    ogs_assert(true == amf_sess_sbi_discover_by_nsi(
-                sess, OGS_SBI_SERVICE_TYPE_NSMF_PDUSESSION, NULL));
 
     return OGS_OK;
 }

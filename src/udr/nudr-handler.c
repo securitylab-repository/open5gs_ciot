@@ -136,10 +136,9 @@ bool udr_nudr_dr_handle_subscription_authentication(
                 if (node->data) {
                     OpenAPI_patch_item_t *patch_item = node->data;
                     if (OpenAPI_IsString(patch_item->value))
-                        sqn_string = patch_item->value->valuestring;
+                        sqn_string = cJSON_GetStringValue(patch_item->value->json);
                     else
-                        ogs_error("Invalid any-type [%d]",
-                                patch_item->value->type);
+                        ogs_error("Non-string value in patch not implemented");
                 }
             }
 
@@ -196,10 +195,12 @@ bool udr_nudr_dr_handle_subscription_authentication(
     CASE(OGS_SBI_RESOURCE_NAME_AUTHENTICATION_STATUS)
         SWITCH(recvmsg->h.method)
         CASE(OGS_SBI_HTTP_METHOD_PUT)
+        CASE(OGS_SBI_HTTP_METHOD_DELETE)
             OpenAPI_auth_event_t *AuthEvent = NULL;
 
             AuthEvent = recvmsg->AuthEvent;
-            if (!AuthEvent) {
+            if (!AuthEvent &&
+                !strcmp(recvmsg->h.method, OGS_SBI_HTTP_METHOD_PUT)) {
                 ogs_error("[%s] No AuthEvent", supi);
                 ogs_assert(true ==
                     ogs_sbi_server_send_error(
@@ -647,6 +648,7 @@ bool udr_nudr_dr_handle_subscription_provisioned(
         OpenAPI_ambr_t *sessionAmbr = NULL;
         OpenAPI_list_t *staticIpAddress = NULL;
         OpenAPI_ip_address_t *ipAddress = NULL;
+        OpenAPI_list_t *FrameRouteList = NULL;
         OpenAPI_lnode_t *node = NULL, *node2 = NULL;
 
         if (!recvmsg->param.single_nssai_presence) {
@@ -827,6 +829,34 @@ bool udr_nudr_dr_handle_subscription_provisioned(
                     session->name, dnnConfiguration);
             ogs_assert(dnnConfigurationMap);
             OpenAPI_list_add(dnnConfigurationList, dnnConfigurationMap);
+
+            if (session->ipv4_framed_routes) {
+                int i;
+                FrameRouteList = OpenAPI_list_create();
+
+                for (i = 0; i < OGS_MAX_NUM_OF_FRAMED_ROUTES_IN_PDI; i++) {
+                    const char *route = session->ipv4_framed_routes[i];
+                    if (!route) break;
+                    OpenAPI_list_add(FrameRouteList,
+                                     OpenAPI_frame_route_info_create(
+                                             ogs_strdup(route), NULL));
+                }
+                dnnConfiguration->ipv4_frame_route_list = FrameRouteList;
+            }
+
+            if (session->ipv6_framed_routes) {
+                int i;
+                FrameRouteList = OpenAPI_list_create();
+
+                for (i = 0; i < OGS_MAX_NUM_OF_FRAMED_ROUTES_IN_PDI; i++) {
+                    const char *route = session->ipv6_framed_routes[i];
+                    if (!route) break;
+                    OpenAPI_list_add(FrameRouteList,
+                                     OpenAPI_frame_route_info_create(
+                                             NULL, ogs_strdup(route)));
+                }
+                dnnConfiguration->ipv6_frame_route_list = FrameRouteList;
+            }
         }
 
         memset(&SessionManagementSubscriptionData, 0,
@@ -903,6 +933,22 @@ bool udr_nudr_dr_handle_subscription_provisioned(
                         }
                         OpenAPI_list_free(staticIpAddress);
                     }
+
+                    FrameRouteList = dnnConfiguration->ipv4_frame_route_list;
+                    OpenAPI_list_for_each(FrameRouteList, node2) {
+                        OpenAPI_frame_route_info_t *frame = node2->data;
+                        if (frame)
+                            ogs_free(frame);
+                    }
+                    OpenAPI_list_free(FrameRouteList);
+
+                    FrameRouteList = dnnConfiguration->ipv6_frame_route_list;
+                    OpenAPI_list_for_each(FrameRouteList, node2) {
+                        OpenAPI_frame_route_info_t *frame = node2->data;
+                        if (frame)
+                            ogs_free(frame);
+                    }
+                    OpenAPI_list_free(FrameRouteList);
 
                     ogs_free(dnnConfiguration);
                 }

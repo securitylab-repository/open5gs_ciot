@@ -25,9 +25,12 @@
 void amf_nnrf_handle_nf_discover(
         ogs_sbi_xact_t *xact, ogs_sbi_message_t *recvmsg)
 {
+    int r;
+
     ogs_sbi_nf_instance_t *nf_instance = NULL;
     ogs_sbi_object_t *sbi_object = NULL;
     ogs_sbi_service_type_e service_type = OGS_SBI_SERVICE_TYPE_NULL;
+    OpenAPI_nf_type_e requester_nf_type = OpenAPI_nf_type_NULL;
     ogs_sbi_discovery_option_t *discovery_option = NULL;
 
     OpenAPI_search_result_t *SearchResult = NULL;
@@ -38,6 +41,8 @@ void amf_nnrf_handle_nf_discover(
     ogs_assert(sbi_object);
     service_type = xact->service_type;
     ogs_assert(service_type);
+    requester_nf_type = xact->requester_nf_type;
+    ogs_assert(requester_nf_type);
 
     discovery_option = xact->discovery_option;
 
@@ -47,9 +52,10 @@ void amf_nnrf_handle_nf_discover(
         return;
     }
 
-    ogs_nnrf_handle_nf_discover_search_result(SearchResult);
+    ogs_nnrf_disc_handle_nf_discover_search_result(SearchResult);
 
-    amf_sbi_select_nf(sbi_object, service_type, discovery_option);
+    amf_sbi_select_nf(sbi_object,
+            service_type, requester_nf_type, discovery_option);
 
     nf_instance = sbi_object->service_type_array[service_type].nf_instance;
     if (!nf_instance) {
@@ -64,25 +70,32 @@ void amf_nnrf_handle_nf_discover(
             ogs_assert(amf_ue);
             ogs_error("[%s] (NF discover) No [%s]", amf_ue->suci,
                         ogs_sbi_service_type_to_name(service_type));
-            ogs_assert(OGS_OK ==
-                nas_5gs_send_gmm_reject_from_sbi(amf_ue,
-                    OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT));
+            r = nas_5gs_send_gmm_reject_from_sbi(amf_ue,
+                    OGS_SBI_HTTP_STATUS_GATEWAY_TIMEOUT);
+            ogs_expect(r == OGS_OK);
+            ogs_assert(r != OGS_ERROR);
             break;
         case OGS_SBI_OBJ_SESS_TYPE:
             sess = (amf_sess_t *)sbi_object;
             ogs_assert(sess);
+                        
+            amf_ue = sess->amf_ue;
+            ogs_assert(amf_ue);
+                        
             ogs_error("[%d:%d] (NF discover) No [%s]", sess->psi, sess->pti,
                         ogs_sbi_service_type_to_name(service_type));
             if (sess->payload_container_type) {
-                ogs_assert(OGS_OK ==
-                    nas_5gs_send_back_gsm_message(sess,
+                r = nas_5gs_send_back_gsm_message(sess,
                         OGS_5GMM_CAUSE_PAYLOAD_WAS_NOT_FORWARDED,
-                        AMF_NAS_BACKOFF_TIME));
+                        AMF_NAS_BACKOFF_TIME);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
             } else {
-                ogs_assert(OGS_OK ==
-                    ngap_send_error_indication2(amf_ue,
+                r = ngap_send_error_indication2(amf_ue,
                         NGAP_Cause_PR_transport,
-                        NGAP_CauseTransport_transport_resource_unavailable));
+                        NGAP_CauseTransport_transport_resource_unavailable);
+                ogs_expect(r == OGS_OK);
+                ogs_assert(r != OGS_ERROR);
             }
             break;
         default:
