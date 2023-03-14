@@ -225,6 +225,11 @@ typedef struct ogs_pfcp_far_s {
     ogs_pfcp_outer_header_creation_t outer_header_creation;
     int                     outer_header_creation_len;
 
+    // linh le - add dupl param to far;
+    ogs_pfcp_interface_t    dupl_dst_if;
+    ogs_pfcp_outer_header_creation_t dupl_outer_header_creation;
+    int                     dupl_outer_header_creation_len;
+
     ogs_pfcp_smreq_flags_t  smreq_flags;
 
     uint32_t                num_of_buffered_packet;
@@ -237,6 +242,7 @@ typedef struct ogs_pfcp_far_s {
     /* Related Context */
     ogs_pfcp_sess_t         *sess;
     void                    *gnode;
+    void                    *dupl_gnode;
 } ogs_pfcp_far_t;
 
 typedef struct ogs_pfcp_urr_s {
@@ -390,6 +396,8 @@ ogs_gtpu_resource_t *ogs_pfcp_find_gtpu_resource(ogs_list_t *list,
         char *dnn, ogs_pfcp_interface_t source_interface);
 int ogs_pfcp_setup_far_gtpu_node(ogs_pfcp_far_t *far);
 int ogs_pfcp_setup_pdr_gtpu_node(ogs_pfcp_pdr_t *pdr);
+
+int ogs_pfcp_setup_far_dupl_gtpu_node(ogs_pfcp_far_t *far);
 
 void ogs_pfcp_sess_clear(ogs_pfcp_sess_t *sess);
 

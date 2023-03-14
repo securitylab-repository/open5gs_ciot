@@ -127,8 +127,11 @@ int ngap_handle_pdu_session_resource_setup_response_transfer(
                 if (dl_far->apply_action != OGS_PFCP_APPLY_ACTION_FORW) {
                     far_update = true;
                 }
-
-                dl_far->apply_action = OGS_PFCP_APPLY_ACTION_FORW;
+                // linh le - check DULP flag before FAR avtivate and add DULP flag when activate
+                if ((dl_far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL)&&(dl_far->dupl_dst_if == OGS_PFCP_INTERFACE_CP_FUNCTION)) {
+                    ogs_info("LINHLE - before update FAR, contain DUPL");
+                }
+                dl_far->apply_action = OGS_PFCP_APPLY_ACTION_FORW | OGS_PFCP_APPLY_ACTION_DUPL;
                 ogs_assert(OGS_OK ==
                     ogs_pfcp_ip_to_outer_header_creation(
                             &sess->gnb_n3_ip,

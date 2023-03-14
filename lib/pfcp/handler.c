@@ -239,6 +239,38 @@ bool ogs_pfcp_up_handle_pdr(
     return true;
 }
 
+
+//linh le - add handle dupl rule in PDR
+bool ogs_pfcp_up_handle_dupl_in_pdr(
+        ogs_pfcp_pdr_t *pdr, uint8_t type, ogs_pkbuf_t *recvbuf)
+{
+    ogs_pfcp_far_t *far = NULL;
+    ogs_pkbuf_t *sendbuf = NULL;
+
+    ogs_assert(recvbuf);
+    ogs_assert(type);
+    ogs_assert(pdr);
+
+    far = pdr->far;
+    ogs_assert(far);
+
+    sendbuf = ogs_pkbuf_copy(recvbuf);
+    ogs_expect_or_return_val(sendbuf, false);
+
+    if (!far->dupl_gnode) {
+        ogs_error("No Outer Header Creation/DUPL gnode in FAR");
+    } else {
+        if (far->apply_action & OGS_PFCP_APPLY_ACTION_DUPL) {
+
+            /* Forward packet to dulp gnode g-pdu*/
+            ogs_pfcp_send_dupl_g_pdu(pdr, type, sendbuf);
+
+        }
+    }
+
+    return true;
+}
+
 bool ogs_pfcp_up_handle_error_indication(
         ogs_pfcp_far_t *far, ogs_pfcp_user_plane_report_t *report)
 {
@@ -916,6 +948,31 @@ ogs_pfcp_far_t *ogs_pfcp_handle_create_far(ogs_pfcp_sess_t *sess,
         }
     }
 
+    // linh le - UPF add dupl param in FAR from request message
+    far->dupl_dst_if = 0;
+    memset(&far->dupl_outer_header_creation,0,sizeof(far->dupl_outer_header_creation)); 
+
+    if (message->duplicating_parameters.presence) {
+        if (message->duplicating_parameters.destination_interface.presence) {
+            far->dupl_dst_if = message->duplicating_parameters.destination_interface.u8;
+        }
+
+        if (message->duplicating_parameters.outer_header_creation.presence) {
+            ogs_pfcp_tlv_outer_header_creation_t *dupl_outer_header_creation =
+                &message->duplicating_parameters.outer_header_creation;
+            
+            ogs_assert(dupl_outer_header_creation->data);
+            ogs_assert(dupl_outer_header_creation->len);
+
+            memcpy(&far->dupl_outer_header_creation, dupl_outer_header_creation->data,
+                    ogs_min(sizeof(far->dupl_outer_header_creation),
+                            dupl_outer_header_creation->len));
+            far->dupl_outer_header_creation.teid =
+                    be32toh(far->dupl_outer_header_creation.teid);
+
+        }
+    }
+
     return far;
 }
 
@@ -1023,6 +1080,32 @@ ogs_pfcp_far_t *ogs_pfcp_handle_update_far(ogs_pfcp_sess_t *sess,
                     be32toh(far->outer_header_creation.teid);
         }
     }
+
+    /* linh le
+    # Currently unnessary because dupl_node is created when session establish
+    # We only update duplicating parameters when changing duplicate destination 
+    # (currently only duplicating to IDSF)
+    
+    if (message->update_duplicating_parameters.presence){
+        if (message->update_duplicating_parameters.destination_interface.presence) {
+            far->dupl_dst_if = message->update_duplicating_parameters.destination_interface.u8;
+        }
+
+        if (message->update_duplicating_parameters.outer_header_creation.presence) {
+            ogs_pfcp_tlv_outer_header_creation_t *dupl_outer_header_creation =
+                &message->update_duplicating_parameters.outer_header_creation;
+            
+            ogs_assert(dupl_outer_header_creation->data);
+            ogs_assert(dupl_outer_header_creation->len);
+
+            memcpy(&far->dupl_outer_header_creation, dupl_outer_header_creation->data,
+                    ogs_min(sizeof(far->dupl_outer_header_creation),
+                            dupl_outer_header_creation->len));
+            far->dupl_outer_header_creation.teid =
+                    be32toh(far->dupl_outer_header_creation.teid);
+        }
+    }
+    */
 
     return far;
 }

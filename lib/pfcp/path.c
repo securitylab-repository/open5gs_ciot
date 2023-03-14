@@ -375,6 +375,48 @@ void ogs_pfcp_send_g_pdu(
     ogs_gtp2_send_user_plane(gnode, &gtp_hdesc, &ext_hdesc, sendbuf);
 }
 
+//linh le - add send over dupl gnode
+void ogs_pfcp_send_dupl_g_pdu(
+        ogs_pfcp_pdr_t *pdr, uint8_t type, ogs_pkbuf_t *sendbuf)
+{
+    ogs_gtp_node_t *dupl_gnode = NULL;
+    ogs_pfcp_far_t *far = NULL;
+
+    ogs_gtp2_header_t gtp_hdesc;
+    ogs_gtp2_extension_header_t ext_hdesc;
+
+    ogs_assert(pdr);
+    ogs_assert(type);
+    ogs_assert(sendbuf);
+
+    far = pdr->far;
+    if (!far) {
+        ogs_error("No FAR");
+        ogs_pkbuf_free(sendbuf);
+        return;
+    }
+
+    if (far->dupl_dst_if == OGS_PFCP_INTERFACE_UNKNOWN) {
+        ogs_error("No Destination Interface");
+        ogs_pkbuf_free(sendbuf);
+        return;
+    }
+
+    dupl_gnode = far->dupl_gnode;
+    ogs_assert(dupl_gnode);
+    ogs_assert(dupl_gnode->sock);
+
+    memset(&gtp_hdesc, 0, sizeof(gtp_hdesc));
+    memset(&ext_hdesc, 0, sizeof(ext_hdesc));
+
+    gtp_hdesc.type = type;
+    gtp_hdesc.teid = far->dupl_outer_header_creation.teid;
+    if (pdr->qer && pdr->qer->qfi)
+        ext_hdesc.qos_flow_identifier = pdr->qer->qfi;
+
+    ogs_gtp2_send_user_plane(dupl_gnode, &gtp_hdesc, &ext_hdesc, sendbuf);
+}
+
 int ogs_pfcp_send_end_marker(ogs_pfcp_pdr_t *pdr)
 {
     ogs_gtp_node_t *gnode = NULL;

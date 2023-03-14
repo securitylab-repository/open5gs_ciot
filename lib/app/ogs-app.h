@@ -97,6 +97,10 @@ void amf_terminate(void);
 int scp_initialize(void);
 void scp_terminate(void);
 
+// decleare header fuction for idsf - le linh
+int idsf_initialize(void);
+void idsf_terminate(void);
+
 #ifdef __cplusplus
 }
 #endif

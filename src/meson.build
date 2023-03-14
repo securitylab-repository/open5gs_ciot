@@ -51,3 +51,6 @@ subdir('ausf')
 subdir('upf')
 subdir('smf')
 subdir('amf')
+
+# add IDS subfolder as function
+subdir('idsf')
