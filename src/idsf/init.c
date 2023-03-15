@@ -18,8 +18,7 @@ int idsf_initialize()
 
     // ogs_gtp_context_init(OGS_MAX_NUM_OF_GTPU_RESOURCE);
 
-    ogs_sbi_context_init();
-  
+    ogs_sbi_context_init(OpenAPI_nf_type_IDSF);
     // context.c
     idsf_context_init();
 
@@ -96,7 +95,6 @@ void idsf_terminate(void)
     // ogs_gtp_context_final();
 
     // ogs_gtp_xact_final();
-
 }
 
 // based on pcf/init.c
@@ -106,7 +104,6 @@ static void idsf_main(void *data)
     int rv;
 
     // idsf-sm.c
-    // ogs_fsm_create(&idsf_sm, idsf_state_initial, idsf_state_final);
     ogs_fsm_init(&idsf_sm, idsf_state_initial,idsf_state_final,0);
 
     for ( ;; ) {

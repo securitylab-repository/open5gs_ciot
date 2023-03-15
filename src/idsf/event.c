@@ -4,19 +4,6 @@
 */
 
 #include "event.h"
-// #include "context.h"
-
-// static OGS_POOL(pool, idsf_event_t);
-
-// void idsf_event_init(void)
-// {
-//     ogs_pool_init(&pool, ogs_app()->pool.event);
-// }
-
-// void idsf_event_final(void)
-// {
-//     ogs_pool_final(&pool);
-// }
 
 idsf_event_t *idsf_event_new(int id)
 {
@@ -31,12 +18,6 @@ idsf_event_t *idsf_event_new(int id)
 
     return e;
 }
-
-// void idsf_event_free(idsf_event_t *e)
-// {
-//     ogs_assert(e);
-//     ogs_pool_free(&pool, e);
-// }
 
 const char *idsf_event_get_name(idsf_event_t *e)
 {

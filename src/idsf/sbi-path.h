@@ -18,7 +18,7 @@ void idsf_sbi_close(void);
 
 // bool idsf_nnrf_nfm_send_nf_register(ogs_sbi_nf_instance_t *nf_instance);
 
-bool idsf_sbi_send_request(ogs_sbi_nf_instance_t *nf_instance, void *data);
+bool idsf_sbi_send_request(ogs_sbi_nf_instance_t *nf_instance, ogs_sbi_xact_t *xact);
 
 #ifdef __cplusplus
 }
