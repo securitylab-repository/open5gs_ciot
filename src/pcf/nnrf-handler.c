@@ -23,6 +23,7 @@
 void pcf_nnrf_handle_nf_discover(
         ogs_sbi_xact_t *xact, ogs_sbi_message_t *recvmsg)
 {
+    int r;
     ogs_sbi_nf_instance_t *nf_instance = NULL;
     ogs_sbi_object_t *sbi_object = NULL;
     ogs_sbi_service_type_e service_type = OGS_SBI_SERVICE_TYPE_NULL;
@@ -33,6 +34,7 @@ void pcf_nnrf_handle_nf_discover(
     pcf_sess_t *sess = NULL;
 
     OpenAPI_nf_type_e target_nf_type = OpenAPI_nf_type_NULL;
+    OpenAPI_nf_type_e requester_nf_type = OpenAPI_nf_type_NULL;
     OpenAPI_search_result_t *SearchResult = NULL;
 
     ogs_assert(recvmsg);
@@ -43,6 +45,8 @@ void pcf_nnrf_handle_nf_discover(
     ogs_assert(service_type);
     target_nf_type = ogs_sbi_service_type_to_nf_type(service_type);
     ogs_assert(target_nf_type);
+    requester_nf_type = xact->requester_nf_type;
+    ogs_assert(requester_nf_type);
 
     discovery_option = xact->discovery_option;
     stream = xact->assoc_stream;
@@ -67,15 +71,16 @@ void pcf_nnrf_handle_nf_discover(
         ogs_assert_if_reached();
     }
 
-    ogs_nnrf_handle_nf_discover_search_result(SearchResult);
+    ogs_nnrf_disc_handle_nf_discover_search_result(SearchResult);
 
     nf_instance = ogs_sbi_nf_instance_find_by_discovery_param(
-                    target_nf_type, discovery_option);
+                    target_nf_type, requester_nf_type, discovery_option);
     if (!nf_instance) {
-        ogs_error("[%s:%d] (NF discover) No [%s]",
+        ogs_error("[%s:%d] (NF discover) No [%s:%s]",
                     pcf_ue ? pcf_ue->supi : "Unknown",
                     sess ? sess->psi : 0,
-                    ogs_sbi_service_type_to_name(service_type));
+                    ogs_sbi_service_type_to_name(service_type),
+                    OpenAPI_nf_type_ToString(requester_nf_type));
         return;
     }
 
@@ -88,11 +93,12 @@ void pcf_nnrf_handle_nf_discover(
 
         ogs_assert(sess);
         ogs_assert(stream);
-        ogs_assert(true ==
-                pcf_sess_sbi_discover_and_send(
+        r = pcf_sess_sbi_discover_and_send(
                     OGS_SBI_SERVICE_TYPE_NBSF_MANAGEMENT, NULL,
                     pcf_nbsf_management_build_register,
-                    sess, stream, nf_instance));
+                    sess, stream, nf_instance);
+        ogs_expect(r == OGS_OK);
+        ogs_assert(r != OGS_ERROR);
         break;
     default:
         ogs_assert(xact->request);

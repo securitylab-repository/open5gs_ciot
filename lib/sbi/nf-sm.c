@@ -110,9 +110,7 @@ void ogs_sbi_nf_state_final(ogs_fsm_t *s, ogs_event_t *e)
 void ogs_sbi_nf_state_will_register(ogs_fsm_t *s, ogs_event_t *e)
 {
     ogs_sbi_nf_instance_t *nf_instance = NULL;
-    ogs_sbi_client_t *client = NULL;
     ogs_sbi_message_t *message = NULL;
-    ogs_sockaddr_t *addr = NULL;
 
     ogs_assert(s);
     ogs_assert(e);
@@ -147,7 +145,7 @@ void ogs_sbi_nf_state_will_register(ogs_fsm_t *s, ogs_event_t *e)
 
                 if (message->res_status == OGS_SBI_HTTP_STATUS_OK ||
                     message->res_status == OGS_SBI_HTTP_STATUS_CREATED) {
-                    ogs_sbi_nnrf_handle_nf_register(nf_instance, message);
+                    ogs_nnrf_nfm_handle_nf_register(nf_instance, message);
                     OGS_FSM_TRAN(s, &ogs_sbi_nf_state_registered);
                 } else {
                     ogs_error("[%s] HTTP Response Status Code [%d]",
@@ -174,11 +172,6 @@ void ogs_sbi_nf_state_will_register(ogs_fsm_t *s, ogs_event_t *e)
     case OGS_EVENT_SBI_TIMER:
         switch(e->timer_id) {
         case OGS_TIMER_NF_INSTANCE_REGISTRATION_INTERVAL:
-            client = nf_instance->client;
-            ogs_assert(client);
-            addr = client->node.addr;
-            ogs_assert(addr);
-
             ogs_warn("[%s] Retry to registration with NRF",
                     NF_INSTANCE_ID(ogs_sbi_self()->nf_instance));
 
@@ -216,7 +209,7 @@ void ogs_sbi_nf_state_registered(ogs_fsm_t *s, ogs_event_t *e)
     switch (e->id) {
     case OGS_FSM_ENTRY_SIG:
         if (NF_INSTANCE_TYPE_IS_NRF(nf_instance)) {
-            ogs_sbi_subscription_data_t *subscription_data = NULL;
+            ogs_sbi_subscription_spec_t *subscription_spec = NULL;
 
             ogs_info("[%s] NF registered [Heartbeat:%ds]",
                     NF_INSTANCE_ID(ogs_sbi_self()->nf_instance),
@@ -232,9 +225,12 @@ void ogs_sbi_nf_state_registered(ogs_fsm_t *s, ogs_event_t *e)
             }
 
             ogs_list_for_each(
-                &ogs_sbi_self()->subscription_data_list, subscription_data) {
-                ogs_assert(true ==
-                    ogs_nnrf_nfm_send_nf_status_subscribe(subscription_data));
+                &ogs_sbi_self()->subscription_spec_list, subscription_spec) {
+                ogs_nnrf_nfm_send_nf_status_subscribe(
+                        ogs_sbi_self()->nf_instance->nf_type,
+                        ogs_sbi_self()->nf_instance->id,
+                        subscription_spec->subscr_cond.nf_type,
+                        subscription_spec->subscr_cond.service_name);
             }
         }
         break;
@@ -308,8 +304,10 @@ void ogs_sbi_nf_state_registered(ogs_fsm_t *s, ogs_event_t *e)
             break;
 
         case OGS_TIMER_NF_INSTANCE_NO_HEARTBEAT:
-            ogs_error("[%s] No heartbeat",
-                    NF_INSTANCE_ID(ogs_sbi_self()->nf_instance));
+            ogs_error("[%s:%s] No heartbeat",
+                    NF_INSTANCE_ID(ogs_sbi_self()->nf_instance),
+                    OpenAPI_nf_type_ToString(
+                        NF_INSTANCE_TYPE(ogs_sbi_self()->nf_instance)));
             OGS_FSM_TRAN(s, &ogs_sbi_nf_state_will_register);
             break;
 
@@ -373,9 +371,7 @@ void ogs_sbi_nf_state_de_registered(ogs_fsm_t *s, ogs_event_t *e)
 void ogs_sbi_nf_state_exception(ogs_fsm_t *s, ogs_event_t *e)
 {
     ogs_sbi_nf_instance_t *nf_instance = NULL;
-    ogs_sbi_client_t *client = NULL;
     ogs_sbi_message_t *message = NULL;
-    ogs_sockaddr_t *addr = NULL;
     ogs_assert(s);
     ogs_assert(e);
 
@@ -403,11 +399,6 @@ void ogs_sbi_nf_state_exception(ogs_fsm_t *s, ogs_event_t *e)
     case OGS_EVENT_SBI_TIMER:
         switch(e->timer_id) {
         case OGS_TIMER_NF_INSTANCE_REGISTRATION_INTERVAL:
-            client = nf_instance->client;
-            ogs_assert(client);
-            addr = client->node.addr;
-            ogs_assert(addr);
-
             ogs_warn("[%s] Retry to registration with NRF",
                     NF_INSTANCE_ID(ogs_sbi_self()->nf_instance));
 

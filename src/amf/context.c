@@ -123,6 +123,8 @@ static int amf_context_prepare(void)
 
 static int amf_context_validation(void)
 {
+    ogs_nas_gprs_timer_t gprs_timer;
+
     if (ogs_list_first(&self.ngap_list) == NULL &&
         ogs_list_first(&self.ngap_list6) == NULL) {
         ogs_error("No amf.ngap in '%s'", ogs_app()->file);
@@ -169,6 +171,16 @@ static int amf_context_validation(void)
     if (self.num_of_ciphering_order == 0) {
         ogs_error("no amf.security.ciphering_order in '%s'",
                 ogs_app()->file);
+        return OGS_ERROR;
+    }
+    if (ogs_nas_gprs_timer_from_sec(&gprs_timer, self.time.t3502.value) !=
+        OGS_OK) {
+        ogs_error("Not support GPRS Timer 2 [%d]", (int)self.time.t3502.value);
+        return OGS_ERROR;
+    }
+    if (ogs_nas_gprs_timer_3_from_sec(&gprs_timer, self.time.t3512.value) !=
+        OGS_OK) {
+        ogs_error("Not support GPRS Timer 3 [%d]", (int)self.time.t3512.value);
         return OGS_ERROR;
     }
 
@@ -830,6 +842,55 @@ int amf_context_parse_config(void)
                 } else
                     ogs_warn("unknown key `%s`", amf_key);
             }
+        } else if (!strcmp(root_key, "time")) {
+            ogs_yaml_iter_t time_iter;
+            ogs_yaml_iter_recurse(&root_iter, &time_iter);
+            while (ogs_yaml_iter_next(&time_iter)) {
+                const char *time_key = ogs_yaml_iter_key(&time_iter);
+                ogs_assert(time_key);
+                if (!strcmp(time_key, "t3502")) {
+                    ogs_yaml_iter_t t3502_iter;
+                    ogs_yaml_iter_recurse(&time_iter, &t3502_iter);
+
+                    while (ogs_yaml_iter_next(&t3502_iter)) {
+                        const char *t3502_key =
+                            ogs_yaml_iter_key(&t3502_iter);
+                        ogs_assert(t3502_key);
+
+                        if (!strcmp(t3502_key, "value")) {
+                            const char *v = ogs_yaml_iter_value(&t3502_iter);
+                            if (v)
+                                self.time.t3502.value = atoll(v);
+                        } else
+                            ogs_warn("unknown key `%s`", t3502_key);
+                    }
+                } else if (!strcmp(time_key, "t3512")) {
+                    ogs_yaml_iter_t t3512_iter;
+                    ogs_yaml_iter_recurse(&time_iter, &t3512_iter);
+
+                    while (ogs_yaml_iter_next(&t3512_iter)) {
+                        const char *t3512_key =
+                            ogs_yaml_iter_key(&t3512_iter);
+                        ogs_assert(t3512_key);
+
+                        if (!strcmp(t3512_key, "value")) {
+                            const char *v = ogs_yaml_iter_value(&t3512_iter);
+                            if (v)
+                                self.time.t3512.value = atoll(v);
+                        } else
+                            ogs_warn("unknown key `%s`", t3512_key);
+                    }
+                } else if (!strcmp(time_key, "nf_instance")) {
+                    /* handle config in app library */
+                } else if (!strcmp(time_key, "subscription")) {
+                    /* handle config in app library */
+                } else if (!strcmp(time_key, "message")) {
+                    /* handle config in app library */
+                } else if (!strcmp(time_key, "handover")) {
+                    /* handle config in app library */
+                } else
+                    ogs_warn("unknown key `%s`", time_key);
+            }
         }
     }
 
@@ -1317,6 +1378,39 @@ amf_ue_t *amf_ue_add(ran_ue_t *ran_ue)
         return NULL;
     }
     amf_ue->t3570.pkbuf = NULL;
+    amf_ue->mobile_reachable.timer = ogs_timer_add(
+            ogs_app()->timer_mgr, amf_timer_mobile_reachable_expire, amf_ue);
+    if (!amf_ue->mobile_reachable.timer) {
+        ogs_error("ogs_timer_add() failed");
+        ogs_pool_free(&amf_ue_pool, amf_ue);
+        return NULL;
+    }
+    amf_ue->mobile_reachable.pkbuf = NULL;
+    amf_ue->implicit_deregistration.timer = ogs_timer_add(
+            ogs_app()->timer_mgr, amf_timer_implicit_deregistration_expire, amf_ue);
+    if (!amf_ue->implicit_deregistration.timer) {
+        ogs_error("ogs_timer_add() failed");
+        ogs_pool_free(&amf_ue_pool, amf_ue);
+        return NULL;
+    }
+    amf_ue->implicit_deregistration.pkbuf = NULL;
+
+    /* SBI Type */
+    amf_ue->sbi.type = OGS_SBI_OBJ_UE_TYPE;
+
+    /* SBI Features */
+    OGS_SBI_FEATURES_SET(amf_ue->am_policy_control_features,
+            OGS_SBI_NPCF_AM_POLICY_CONTROL_UE_AMBR_AUTHORIZATION);
+
+    amf_ue->rat_restrictions = OpenAPI_list_create();
+
+    ogs_list_init(&amf_ue->sess_list);
+
+    /* Initialization */
+    amf_ue->guami = &amf_self()->served_guami[0];
+    amf_ue->nas.access_type = OGS_ACCESS_TYPE_3GPP;
+    amf_ue->nas.amf.ksi = OGS_NAS_KSI_NO_KEY_IS_AVAILABLE;
+    amf_ue->abba_len = 2;
 
     /* SBI Type */
     amf_ue->sbi.type = OGS_SBI_OBJ_UE_TYPE;
@@ -1361,6 +1455,8 @@ void amf_ue_remove(amf_ue_t *amf_ue)
 
     /* Clear 5GSM Message */
     AMF_UE_CLEAR_5GSM_MESSAGE(amf_ue);
+
+    OpenAPI_list_free(amf_ue->rat_restrictions);
 
     /* Remove all session context */
     amf_sess_remove_all(amf_ue);
@@ -1415,6 +1511,8 @@ void amf_ue_remove(amf_ue_t *amf_ue)
     ogs_timer_delete(amf_ue->t3555.timer);
     ogs_timer_delete(amf_ue->t3560.timer);
     ogs_timer_delete(amf_ue->t3570.timer);
+    ogs_timer_delete(amf_ue->mobile_reachable.timer);
+    ogs_timer_delete(amf_ue->implicit_deregistration.timer);
 
     /* Free SBI object memory */
     ogs_sbi_object_free(&amf_ue->sbi);
@@ -1526,18 +1624,23 @@ amf_ue_t *amf_ue_find_by_message(ogs_nas_5gs_message_t *message)
                 (ogs_nas_5gs_mobile_identity_suci_t *)mobile_identity->buffer;
 
             if (mobile_identity_suci->protection_scheme_id !=
-                    OGS_NAS_5GS_NULL_SCHEME &&
+                    OGS_PROTECTION_SCHEME_NULL &&
                 mobile_identity_suci->protection_scheme_id !=
-                    OGS_NAS_5GS_ECIES_SCHEME_PROFILE_A &&
+                    OGS_PROTECTION_SCHEME_PROFILE_A &&
                 mobile_identity_suci->protection_scheme_id !=
-                    OGS_NAS_5GS_ECIES_SCHEME_PROFILE_B) {
+                    OGS_PROTECTION_SCHEME_PROFILE_B) {
                 ogs_error("Invalid ProtectionSchemeID(%d) in SUCI",
                     mobile_identity_suci->protection_scheme_id);
                 return NULL;
             }
 
             suci = ogs_nas_5gs_suci_from_mobile_identity(mobile_identity);
-            ogs_assert(suci);
+            if (!suci) {
+                ogs_error("Cannot get the SUCI from Mobilie Identity");
+                ogs_log_hexdump(OGS_LOG_ERROR,
+                        mobile_identity->buffer, mobile_identity->length);
+                return NULL;
+            }
 
             amf_ue = amf_ue_find_by_suci(suci);
             if (amf_ue) {
@@ -1922,6 +2025,7 @@ static bool check_smf_info(ogs_sbi_nf_info_t *nf_info, void *context);
 void amf_sbi_select_nf(
         ogs_sbi_object_t *sbi_object,
         ogs_sbi_service_type_e service_type,
+        OpenAPI_nf_type_e requester_nf_type,
         ogs_sbi_discovery_option_t *discovery_option)
 {
     OpenAPI_nf_type_e target_nf_type = OpenAPI_nf_type_NULL;
@@ -1933,11 +2037,12 @@ void amf_sbi_select_nf(
     ogs_assert(service_type);
     target_nf_type = ogs_sbi_service_type_to_nf_type(service_type);
     ogs_assert(target_nf_type);
+    ogs_assert(requester_nf_type);
 
     switch(sbi_object->type) {
     case OGS_SBI_OBJ_UE_TYPE:
         nf_instance = ogs_sbi_nf_instance_find_by_discovery_param(
-                        target_nf_type, discovery_option);
+                        target_nf_type, requester_nf_type, discovery_option);
         if (nf_instance)
             OGS_SBI_SETUP_NF_INSTANCE(
                     sbi_object->service_type_array[service_type], nf_instance);
@@ -1948,7 +2053,9 @@ void amf_sbi_select_nf(
 
         ogs_list_for_each(&ogs_sbi_self()->nf_instance_list, nf_instance) {
             if (ogs_sbi_discovery_param_is_matched(
-                    nf_instance, target_nf_type, discovery_option) == false)
+                    nf_instance,
+                    target_nf_type, requester_nf_type, discovery_option) ==
+                        false)
                 continue;
 
             nf_info = ogs_sbi_nf_info_find(
@@ -2242,6 +2349,13 @@ static void stats_remove_ran_ue(void)
     ogs_info("[Removed] Number of gNB-UEs is now %d", num_of_ran_ue);
 }
 
+int get_ran_ue_load()
+{
+    return (((ogs_pool_size(&ran_ue_pool) -
+            ogs_pool_avail(&ran_ue_pool)) * 100) /
+            ogs_pool_size(&ran_ue_pool));
+}
+
 static void stats_add_amf_session(void)
 {
     amf_metrics_inst_global_inc(AMF_METR_GLOB_GAUGE_AMF_SESS);
@@ -2514,4 +2628,21 @@ bool amf_update_allowed_nssai(amf_ue_t *amf_ue)
     }
 
     return true;
+}
+
+bool amf_ue_is_rat_restricted(amf_ue_t *amf_ue)
+{
+    OpenAPI_lnode_t *node = NULL;
+    OpenAPI_rat_type_e rat;
+
+    ogs_assert(amf_ue);
+
+    rat = amf_ue_rat_type(amf_ue);
+
+    OpenAPI_list_for_each(amf_ue->rat_restrictions, node) {
+        if (node->data == (void *)rat) {
+            return true;
+        }
+    }
+    return false;
 }

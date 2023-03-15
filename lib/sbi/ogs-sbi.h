@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 by Sukchan Lee <acetcom@gmail.com>
+ * Copyright (C) 2019-2022 by Sukchan Lee <acetcom@gmail.com>
  *
  * This file is part of Open5GS.
  *
@@ -77,10 +77,10 @@
 #include "model/deregistration_data.h"
 #include "model/sdm_subscription.h"
 #include "model/modification_notification.h"
+#include "model/patch_item.h"
+#include "model/ue_authentication_ctx.h"
 
 #include "custom/links.h"
-#include "custom/ue_authentication_ctx.h"
-#include "custom/patch_item.h"
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
@@ -101,6 +101,7 @@
 
 #include "sbi/nnrf-build.h"
 #include "sbi/nnrf-handler.h"
+#include "sbi/nnrf-path.h"
 
 #include "sbi/path.h"
 

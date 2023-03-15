@@ -106,6 +106,9 @@ int udm_context_parse_config(void)
                     /* handle config in sbi library */
                 } else if (!strcmp(udm_key, "discovery")) {
                     /* handle config in sbi library */
+                } else if (!strcmp(udm_key, "hnet")) {
+                    rv = ogs_sbi_context_parse_hnet_config(&udm_iter);
+                    if (rv != OGS_OK) return rv;
                 } else
                     ogs_warn("unknown key `%s`", udm_key);
             }
@@ -232,4 +235,11 @@ udm_ue_t *udm_ue_find_by_ctx_id(char *ctx_id)
 udm_ue_t *udm_ue_cycle(udm_ue_t *udm_ue)
 {
     return ogs_pool_cycle(&udm_ue_pool, udm_ue);
+}
+
+int get_ue_load()
+{
+    return (((ogs_pool_size(&udm_ue_pool) -
+            ogs_pool_avail(&udm_ue_pool)) * 100) /
+            ogs_pool_size(&udm_ue_pool));
 }

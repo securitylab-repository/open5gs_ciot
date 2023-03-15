@@ -1,6 +1,7 @@
 ---
 layout: page
 title: Documentation
+subject: Documentation
 permalink: /docs/
 head_inline: "<style> ul { padding-bottom: 1em; } </style>"
 ---
@@ -11,9 +12,14 @@ head_inline: "<style> ul { padding-bottom: 1em; } </style>"
 
 - Tutorials
   - [Your First LTE](tutorial/01-your-first-lte)
+  - [5G SA COTS UE](https://docs.srsran.com/en/latest/app_notes/source/5g_sa_COTS/source/index.html) from [SRS](https://srs.io)
+  - [Metrics with Prometheus](tutorial/04-metrics-prometheus)
   - [VoLTE Setup with Kamailio IMS and Open5GS](tutorial/02-VoLTE-setup)
   - [Dockerized VoLTE Setup](tutorial/03-VoLTE-dockerized)
-  - [Metrics with Prometheus](tutorial/04-metrics-prometheus)
+
+- Inside Source Code
+  - [UPF Code Explanation](https://medium.com/@aditya.koranga/open5gs-upf-code-explanation-with-flow-c-79c50f253dd1)
+  - [SMF Code Explanation](https://medium.com/@aditya.koranga/open5gs-smf-code-explanation-with-flow-charts-a3b3cd38c991)
 
 - Troubleshooting
   - [Simple Issues](troubleshoot/01-simple-issues)
@@ -53,3 +59,4 @@ head_inline: "<style> ul { padding-bottom: 1em; } </style>"
   - [Select UPF based on S-NSSAI](https://github.com/s5uishida/open5gs_5gc_ueransim_snssai_upf_sample_config)
   - [SCP Indirect communication Model C](https://github.com/s5uishida/open5gs_5gc_ueransim_scp_model_c_sample_config)
   - [Monitoring Metrics with Prometheus](https://github.com/s5uishida/open5gs_5gc_ueransim_metrics_sample_config)
+  - [Frame Routing](https://github.com/s5uishida/open5gs_5gc_ueransim_framed_routing_sample_config)

@@ -50,13 +50,14 @@ extern "C" {
 #define OGS_MAX_NUM_OF_FLOW_IN_BEARER   16
 
 #define OGS_MAX_NUM_OF_GTPU_RESOURCE    4
+#define OGS_MAX_NUM_OF_FRAMED_ROUTES_IN_PDI 8
 
-#define OGS_MAX_SDU_LEN                 8192
-#define OGS_MAX_PKT_LEN                 2048
 #define OGS_PLMN_ID_LEN                 3
 #define OGS_MAX_PLMN_ID_BCD_LEN         6
 
 #define OGS_CHRGCHARS_LEN               2
+
+#define OGS_MSIN_LEN                    5
 
 #define OGS_BCD_TO_BUFFER_LEN(x)        (((x)+1)/2)
 #define OGS_MAX_IMSI_BCD_LEN            15
@@ -176,14 +177,17 @@ ogs_amf_id_t *ogs_amf_id_build(ogs_amf_id_t *amf_id,
         uint8_t region, uint16_t set, uint8_t pointer);
 
 /************************************
- * SUPI/SUCI                       */
-char *ogs_supi_from_suci(char *suci);
-char *ogs_supi_from_supi_or_suci(char *supi_or_suci);
+ * 9.11.3.4 5GS mobile identity
+ * - Protection Scheme */
+#define OGS_PROTECTION_SCHEME_NULL 0
+#define OGS_PROTECTION_SCHEME_PROFILE_A 1
+#define OGS_PROTECTION_SCHEME_PROFILE_B 2
 
 /************************************
  * SUPI/GPSI                       */
 #define OGS_ID_SUPI_TYPE_IMSI "imsi"
 #define OGS_ID_GPSI_TYPE_MSISDN "msisdn"
+#define OGS_ID_SUPI_TYPE_IMEISV "imeisv"
 char *ogs_id_get_type(char *str);
 char *ogs_id_get_value(char *str);
 
@@ -447,6 +451,7 @@ typedef struct ogs_pcc_rule_s {
         (__pCCrULE)->num_of_flow = 0; \
     } while(0)
 
+
 /**********************************
  * PDN Structure                 */
 typedef struct ogs_session_s {
@@ -478,6 +483,8 @@ typedef struct ogs_session_s {
 
     ogs_paa_t paa;
     ogs_ip_t ue_ip;
+    char **ipv4_framed_routes;
+    char **ipv6_framed_routes;
     ogs_ip_t smf_ip;
 } ogs_session_t;
 
@@ -780,6 +787,11 @@ int ogs_pcc_rule_install_flow_from_media(
         ogs_pcc_rule_t *pcc_rule, ogs_media_component_t *media_component);
 int ogs_pcc_rule_update_qos_from_media(
         ogs_pcc_rule_t *pcc_rule, ogs_media_component_t *media_component);
+
+typedef struct ogs_datum_s {
+    unsigned char *data;
+    unsigned int size;
+} ogs_datum_t;
 
 #ifdef __cplusplus
 }

@@ -50,8 +50,6 @@ typedef struct ogs_sbi_request_s ogs_sbi_request_t;
 typedef struct ogs_sbi_response_s ogs_sbi_response_t;
 typedef struct ogs_sbi_message_s ogs_sbi_message_t;
 
-typedef struct _bson_t bson_t;
-
 typedef struct ogs_event_s {
     int id;
     int timer_id;
@@ -66,9 +64,11 @@ typedef struct ogs_event_s {
     } sbi;
 
     struct {
-        const bson_t *document;
+        void *document;
     } dbi;
 } ogs_event_t;
+
+#define OGS_EVENT_SIZE 256
 
 void *ogs_event_size(int id, size_t size);
 ogs_event_t *ogs_event_new(int id);

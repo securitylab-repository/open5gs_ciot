@@ -52,6 +52,9 @@ typedef struct bsf_sess_s {
     char *ipv4addr_string;
     char *ipv6prefix_string;
 
+    OpenAPI_list_t *ipv4_frame_route_list;
+    OpenAPI_list_t *ipv6_frame_route_list;
+
     uint32_t ipv4addr;
     struct {
         uint8_t len;
@@ -95,6 +98,7 @@ bsf_sess_t *bsf_sess_find_by_snssai_and_dnn(ogs_s_nssai_t *s_nssai, char *dnn);
 bsf_sess_t *bsf_sess_find_by_binding_id(char *binding_id);
 bsf_sess_t *bsf_sess_find_by_ipv4addr(char *ipv4addr_string);
 bsf_sess_t *bsf_sess_find_by_ipv6prefix(char *ipv6prefix_string);
+int get_sess_load(void);
 
 #ifdef __cplusplus
 }

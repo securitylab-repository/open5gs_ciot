@@ -61,6 +61,36 @@ static ogs_pkbuf_pool_t *packet_pool = NULL;
 
 static void upf_gtp_handle_multicast(ogs_pkbuf_t *recvbuf);
 
+static int check_framed_routes(upf_sess_t *sess, int family, uint32_t *addr)
+{
+    int i = 0;
+    ogs_ipsubnet_t *routes = family == AF_INET ?
+        sess->ipv4_framed_routes : sess->ipv6_framed_routes;
+
+    if (!routes)
+        return false;
+
+    for (i = 0; i < OGS_MAX_NUM_OF_FRAMED_ROUTES_IN_PDI; i++) {
+        uint32_t *sub = routes[i].sub;
+        uint32_t *mask = routes[i].mask;
+
+        if (!routes[i].family)
+            break;
+
+        if (family == AF_INET) {
+            if (sub[0] == (addr[0] & mask[0]))
+                return true;
+        } else {
+            if (sub[0] == (addr[0] & mask[0]) &&
+                sub[1] == (addr[1] & mask[1]) &&
+                sub[2] == (addr[2] & mask[2]) &&
+                sub[3] == (addr[3] & mask[3]))
+                return true;
+        }
+    }
+    return false;
+}
+
 static uint16_t _get_eth_type(uint8_t *data, uint len) {
     if (len > ETHER_HDR_LEN) {
         struct ether_header *hdr = (struct ether_header*)data;
@@ -119,6 +149,8 @@ static void _gtpv1_tun_recv_common_cb(
         if (replybuf) {
             if (ogs_tun_write(fd, replybuf) != OGS_OK)
                 ogs_warn("ogs_tun_write() for reply failed");
+            
+            ogs_pkbuf_free(replybuf);
             goto cleanup;
         }
         if (eth_type != ETHERTYPE_IP && eth_type != ETHERTYPE_IPV6) {
@@ -194,6 +226,10 @@ static void _gtpv1_tun_recv_common_cb(
                     pdr, OGS_GTPU_MSGTYPE_GPDU, recvbuf));
 
     }
+    
+    upf_metrics_inst_global_inc(UPF_METR_GLOB_CTR_GTP_OUTDATAPKTN3UPF);
+    upf_metrics_inst_by_qfi_add(pdr->qer->qfi,
+        UPF_METR_CTR_GTP_OUTDATAVOLUMEQOSLEVELN3UPF, recvbuf->len);
 
     if (report.type.downlink_data_report) {
         ogs_assert(pdr->sess);
@@ -289,7 +325,7 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
 
     teid = be32toh(gtp_h->teid);
 
-    ogs_debug("[RECV] GPU-U Type [%d] from [%s] : TEID[0x%x]",
+    ogs_trace("[RECV] GPU-U Type [%d] from [%s] : TEID[0x%x]",
             gtp_h->type, OGS_ADDR(&from, buf), teid);
 
     qfi = 0;
@@ -309,7 +345,7 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
                 OGS_GTP2_EXTENSION_HEADER_TYPE_PDU_SESSION_CONTAINER) {
             if (extension_header->pdu_type ==
                 OGS_GTP2_EXTENSION_HEADER_PDU_TYPE_UL_PDU_SESSION_INFORMATION) {
-                    ogs_debug("   QFI [0x%x]",
+                    ogs_trace("   QFI [0x%x]",
                             extension_header->qos_flow_identifier);
                     qfi = extension_header->qos_flow_identifier;
             }
@@ -372,6 +408,10 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
         ip_h = (struct ip *)pkbuf->data;
         ogs_assert(ip_h);
 
+        upf_metrics_inst_global_inc(UPF_METR_GLOB_CTR_GTP_INDATAPKTN3UPF);
+        upf_metrics_inst_by_qfi_add(qfi,
+                UPF_METR_CTR_GTP_INDATAVOLUMEQOSLEVELN3UPF, pkbuf->len);
+
         pfcp_object = ogs_pfcp_object_find_by_teid(teid);
         if (!pfcp_object) {
             /* TODO : Send Error Indication */
@@ -432,7 +472,7 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
         ogs_assert(far);
 
         if (ip_h->ip_v == 4 && sess->ipv4) {
-            src_addr = &ip_h->ip_src.s_addr;
+            src_addr = (void *)&ip_h->ip_src.s_addr;
             ogs_assert(src_addr);
 
             /*
@@ -446,6 +486,8 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
 
                 if (src_addr[0] == sess->ipv4->addr[0]) {
                     /* Source IP address should be matched in uplink */
+                } else if (check_framed_routes(sess, AF_INET, src_addr)) {
+                    /* Or source IP address should match a framed route */
                 } else {
                     ogs_error("[DROP] Source IP-%d Spoofing APN:%s SrcIf:%d DstIf:%d TEID:0x%x",
                                 ip_h->ip_v, pdr->dnn, pdr->src_if, far->dst_if, teid);
@@ -463,7 +505,7 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
         } else if (ip_h->ip_v == 6 && sess->ipv6) {
             struct ip6_hdr *ip6_h = (struct ip6_hdr *)pkbuf->data;
             ogs_assert(ip6_h);
-            src_addr = (uint32_t *)ip6_h->ip6_src.s6_addr;
+            src_addr = (void *)ip6_h->ip6_src.s6_addr;
             ogs_assert(src_addr);
 
             /*
@@ -522,6 +564,8 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
                      * If Global address
                      * 64 bit prefix should be matched
                      */
+                } else if (check_framed_routes(sess, AF_INET6, src_addr)) {
+                    /* Or source IP address should match a framed route */
                 } else {
                     ogs_error("[DROP] Source IP-%d Spoofing APN:%s SrcIf:%d DstIf:%d TEID:0x%x",
                                 ip_h->ip_v, pdr->dnn, pdr->src_if, far->dst_if, teid);
@@ -671,7 +715,7 @@ static void _get_dev_mac_addr(char *ifname, uint8_t *mac_addr)
     ogs_assert(fd);
     struct ifreq req;
     memset(&req, 0, sizeof(req));
-    strncpy(req.ifr_name, ifname, IF_NAMESIZE-1);
+    ogs_cpystrn(req.ifr_name, ifname, IF_NAMESIZE-1);
     ogs_assert(ioctl(fd, SIOCGIFHWADDR, &req) == 0);
     memcpy(mac_addr, req.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
 #else

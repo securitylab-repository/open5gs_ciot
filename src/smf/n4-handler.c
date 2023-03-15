@@ -178,6 +178,8 @@ uint8_t smf_5gc_n4_handle_session_establishment_response(
         if (rsp->cause.u8 != OGS_PFCP_CAUSE_REQUEST_ACCEPTED) {
             ogs_error("PFCP Cause [%d] : Not Accepted", rsp->cause.u8);
             cause_value = rsp->cause.u8;
+            smf_metrics_inst_by_cause_add(cause_value,
+                    SMF_METR_CTR_SM_N4SESSIONESTABFAIL, 1);
         }
     } else {
         ogs_error("No Cause");
@@ -464,11 +466,23 @@ void smf_5gc_n4_handle_session_modification_response(
 
             ogs_assert(flags & OGS_PFCP_MODIFY_SESSION);
 
+            /*
+             * TS24.501
+             * 6.2 General on elementary 5GSM procedures
+             * 6.2.1 Principles of PTI handling for 5GSM procedures
+             *
+             * If a command message is not sent as result of
+             * a received request message, the sending entity shall
+             * include in the command message the PTI value set to
+             * "no procedure transaction identity assigned"
+             * (see examples in figure 6.2.1.4).
+             */
+            sess->pti = OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED;
+
             memset(&param, 0, sizeof(param));
             param.state = SMF_NETWORK_REQUESTED_QOS_FLOW_MODIFICATION;
             param.n1smbuf = gsm_build_pdu_session_modification_command(
                     sess,
-                    OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                     OGS_NAS_QOS_CODE_DELETE_EXISTING_QOS_RULE,
                     OGS_NAS_DELETE_NEW_QOS_FLOW_DESCRIPTION);
             ogs_assert(param.n1smbuf);
@@ -481,8 +495,14 @@ void smf_5gc_n4_handle_session_modification_response(
             smf_namf_comm_send_n1_n2_message_transfer(sess, &param);
 
             ogs_list_for_each_entry_safe(&sess->qos_flow_to_modify_list,
-                    next, qos_flow, to_modify_node)
+                    next, qos_flow, to_modify_node) {
+                smf_metrics_inst_by_5qi_add(
+                        &qos_flow->sess->plmn_id,
+                        &qos_flow->sess->s_nssai,
+                        qos_flow->sess->session.qos.index,
+                        SMF_METR_GAUGE_SM_QOSFLOWNBR, -1);
                 smf_bearer_remove(qos_flow);
+            }
 
         } else if (flags & OGS_PFCP_MODIFY_UE_REQUESTED) {
             ogs_pkbuf_t *n1smbuf = NULL, *n2smbuf = NULL;
@@ -492,7 +512,7 @@ void smf_5gc_n4_handle_session_modification_response(
 
             ogs_assert(flags & OGS_PFCP_MODIFY_SESSION);
             n1smbuf = gsm_build_pdu_session_modification_command(
-                    sess, sess->pti,
+                    sess,
                     OGS_NAS_QOS_CODE_DELETE_EXISTING_QOS_RULE,
                     OGS_NAS_DELETE_NEW_QOS_FLOW_DESCRIPTION);
             ogs_assert(n1smbuf);
@@ -507,8 +527,14 @@ void smf_5gc_n4_handle_session_modification_response(
                         OpenAPI_n2_sm_info_type_PDU_RES_MOD_REQ, n2smbuf);
 
             ogs_list_for_each_entry_safe(&sess->qos_flow_to_modify_list,
-                    next, qos_flow, to_modify_node)
+                    next, qos_flow, to_modify_node) {
+                smf_metrics_inst_by_5qi_add(
+                        &qos_flow->sess->plmn_id,
+                        &qos_flow->sess->s_nssai,
+                        qos_flow->sess->session.qos.index,
+                        SMF_METR_GAUGE_SM_QOSFLOWNBR, -1);
                 smf_bearer_remove(qos_flow);
+            }
 
         } else {
             ogs_fatal("Unknown flags [0x%llx]", (long long)flags);
@@ -528,11 +554,23 @@ void smf_5gc_n4_handle_session_modification_response(
 
             ogs_assert(flags & OGS_PFCP_MODIFY_SESSION);
 
+            /*
+             * TS24.501
+             * 6.2 General on elementary 5GSM procedures
+             * 6.2.1 Principles of PTI handling for 5GSM procedures
+             *
+             * If a command message is not sent as result of
+             * a received request message, the sending entity shall
+             * include in the command message the PTI value set to
+             * "no procedure transaction identity assigned"
+             * (see examples in figure 6.2.1.4).
+             */
+            sess->pti = OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED;
+
             memset(&param, 0, sizeof(param));
             param.state = SMF_NETWORK_REQUESTED_QOS_FLOW_MODIFICATION;
             param.n1smbuf = gsm_build_pdu_session_modification_command(
                     sess,
-                    OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
                     OGS_NAS_QOS_CODE_CREATE_NEW_QOS_RULE,
                     OGS_NAS_CREATE_NEW_QOS_FLOW_DESCRIPTION);
             ogs_assert(param.n1smbuf);
@@ -577,12 +615,23 @@ void smf_5gc_n4_handle_session_modification_response(
         if (flags & OGS_PFCP_MODIFY_NETWORK_REQUESTED) {
             ogs_assert(flags & OGS_PFCP_MODIFY_SESSION);
 
+            /*
+             * TS24.501
+             * 6.2 General on elementary 5GSM procedures
+             * 6.2.1 Principles of PTI handling for 5GSM procedures
+             *
+             * If a command message is not sent as result of
+             * a received request message, the sending entity shall
+             * include in the command message the PTI value set to
+             * "no procedure transaction identity assigned"
+             * (see examples in figure 6.2.1.4).
+             */
+            sess->pti = OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED;
+
             memset(&param, 0, sizeof(param));
             param.state = SMF_NETWORK_REQUESTED_QOS_FLOW_MODIFICATION;
             param.n1smbuf = gsm_build_pdu_session_modification_command(
-                    sess,
-                    OGS_NAS_PROCEDURE_TRANSACTION_IDENTITY_UNASSIGNED,
-                    qos_rule_code, qos_flow_description_code);
+                    sess, qos_rule_code, qos_flow_description_code);
             ogs_assert(param.n1smbuf);
             param.n2smbuf =
                 ngap_build_pdu_session_resource_modify_request_transfer(
@@ -599,8 +648,7 @@ void smf_5gc_n4_handle_session_modification_response(
 
             ogs_assert(flags & OGS_PFCP_MODIFY_SESSION);
             n1smbuf = gsm_build_pdu_session_modification_command(
-                    sess, sess->pti,
-                    qos_rule_code, qos_flow_description_code);
+                    sess, qos_rule_code, qos_flow_description_code);
             ogs_assert(n1smbuf);
 
             n2smbuf = ngap_build_pdu_session_resource_modify_request_transfer(
@@ -933,10 +981,16 @@ void smf_epc_n4_handle_session_modification_response(
 
             pkbuf = smf_s5c_build_delete_bearer_request(
                     h.type, bearer, gtp_pti, gtp_cause);
-            ogs_expect_or_return(pkbuf);
+            if (!pkbuf) {
+                ogs_error("smf_s5c_build_delete_bearer_request() failed");
+                return;
+            }
 
             rv = ogs_gtp_xact_update_tx(gtp_xact, &h, pkbuf);
-            ogs_expect_or_return(rv == OGS_OK);
+            if (rv != OGS_OK) {
+                ogs_error("ogs_gtp_xact_update_tx() failed");
+                return;
+            }
 
         /* IMPORTANT:
          *
@@ -1111,6 +1165,8 @@ void smf_n4_handle_session_report_request(
     uint8_t cause_value = 0;
     uint16_t pdr_id = 0;
     unsigned int i;
+
+    smf_metrics_inst_global_inc(SMF_METR_GLOB_CTR_SM_N4SESSIONREPORT);
 
     ogs_assert(pfcp_xact);
     ogs_assert(pfcp_req);
@@ -1287,6 +1343,7 @@ void smf_n4_handle_session_report_request(
         ogs_assert(OGS_OK ==
             smf_pfcp_send_session_report_response(
                 pfcp_xact, sess, OGS_PFCP_CAUSE_REQUEST_ACCEPTED));
+        smf_metrics_inst_global_inc(SMF_METR_GLOB_CTR_SM_N4SESSIONREPORTSUCC);
     } else {
         ogs_error("Not supported Report Type[%d]", report_type.value);
         ogs_assert(OGS_OK ==

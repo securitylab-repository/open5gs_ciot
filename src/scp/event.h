@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
 #ifndef SCP_EVENT_H
 #define SCP_EVENT_H
 
@@ -35,6 +36,8 @@ typedef struct scp_event_s {
     ogs_sbi_nf_instance_t *nf_instance;
     scp_sess_t *sess;
 } scp_event_t;
+
+OGS_STATIC_ASSERT(OGS_EVENT_SIZE >= sizeof(scp_event_t));
 
 scp_event_t *scp_event_new(int id);
 
