@@ -535,6 +535,7 @@ static struct {
     char dnn[OGS_MAX_DNN_LEN+1];
 } farbuf[OGS_MAX_NUM_OF_FAR];
 
+// linh le - outer header for duplicate FAR
 static struct {
     ogs_pfcp_outer_header_creation_t outer_header_creation;
 } dupbuf[OGS_MAX_NUM_OF_FAR];

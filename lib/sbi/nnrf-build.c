@@ -1509,7 +1509,6 @@ ogs_sbi_request_t *ogs_nnrf_disc_build_discover(
     ogs_sbi_request_t *request = NULL;
 
     ogs_assert(target_nf_type);
-
     ogs_assert(requester_nf_type);
 
     memset(&message, 0, sizeof(message));
