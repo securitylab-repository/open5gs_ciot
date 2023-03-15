@@ -37,7 +37,7 @@ void idsf_nnrf_handle_nf_discover(
         return;
     }
 
-    ogs_nnrf_handle_nf_discover_search_result(SearchResult);
+    ogs_nnrf_disc_handle_nf_discover_search_result(SearchResult);
 
     nf_instance = ogs_sbi_nf_instance_find_by_discovery_param(
                     target_nf_type, requester_nf_type, discovery_option);

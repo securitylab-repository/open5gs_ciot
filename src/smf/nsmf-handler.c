@@ -89,12 +89,12 @@ bool smf_nsmf_handle_create_sm_context(
                 OGS_SBI_HTTP_STATUS_BAD_REQUEST,
                 "No PTI", smf_ue->supi, NULL);
         return false;
-
+    }
+    
      // added by boussad
      // edited by le linh
     ogs_info("is_cp_ciot_enabled: %d is_cp_only_ind: %d", SmContextCreateData->is_cp_ciot_enabled, SmContextCreateData->is_cp_only_ind);
     if (!SmContextCreateData->is_cp_ciot_enabled && !SmContextCreateData->is_cp_only_ind){
-
         ogs_info("cp_ciot_enabled:cp_only_ind-[%d:%d] No CIOT",SmContextCreateData->cp_ciot_enabled,SmContextCreateData->cp_only_ind); 
     }
     else {

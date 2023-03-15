@@ -255,7 +255,10 @@ bool ogs_pfcp_up_handle_dupl_in_pdr(
     ogs_assert(far);
 
     sendbuf = ogs_pkbuf_copy(recvbuf);
-    ogs_expect_or_return_val(sendbuf, false);
+    if (!sendbuf) {
+        ogs_error("ogs_pkbuf_copy() failed");
+        return false;
+    }
 
     if (!far->dupl_gnode) {
         ogs_error("No Outer Header Creation/DUPL gnode in FAR");
@@ -264,7 +267,6 @@ bool ogs_pfcp_up_handle_dupl_in_pdr(
 
             /* Forward packet to dulp gnode g-pdu*/
             ogs_pfcp_send_dupl_g_pdu(pdr, type, sendbuf);
-
         }
     }
 

@@ -124,5 +124,5 @@ bool idsf_sbi_send_request(ogs_sbi_nf_instance_t *nf_instance, ogs_sbi_xact_t *x
 {
     ogs_assert(nf_instance);
     ogs_assert(xact);
-    return ogs_sbi_send_request(nf_instance, xact);
+    return ogs_sbi_send_request_to_nf_instance(nf_instance, xact);
 }
