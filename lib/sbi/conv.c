@@ -358,11 +358,6 @@ char *ogs_sbi_client_apiroot(ogs_sbi_client_t *client)
     return ogs_sbi_client_uri(client, NULL);
 }
 
-char *ogs_sbi_client_apiroot(ogs_sbi_client_t *client)
-{
-    return ogs_sbi_client_uri(client, NULL);
-}
-
 /**
  * Returns a url-decoded version of str
  * IMPORTANT: be sure to free() the returned string after use
@@ -515,57 +510,6 @@ bool ogs_sbi_getpath_from_uri(char **path, char *uri)
 
     ogs_free(p);
     return true;
-}
-
-char *ogs_sbi_getpath_from_uri(char *uri)
-{
-    int rv;
-    struct yuarel yuarel;
-    char *p = NULL;
-    char *path = NULL;
-
-    p = ogs_strdup(uri);
-
-    rv = yuarel_parse(&yuarel, p);
-    if (rv != OGS_OK) {
-        ogs_free(p);
-        ogs_error("yuarel_parse() failed [%s]", uri);
-        return NULL;
-    }
-
-    if (!yuarel.scheme) {
-        ogs_error("No http.scheme found [%s]", uri);
-        ogs_free(p);
-        return NULL;
-    }
-
-    if (strcmp(yuarel.scheme, "https") == 0) {
-
-    } else if (strcmp(yuarel.scheme, "http") == 0) {
-
-    } else {
-        ogs_error("Invalid http.scheme [%s:%s]", yuarel.scheme, uri);
-        ogs_free(p);
-        return NULL;
-    }
-
-    if (!yuarel.host) {
-        ogs_error("No http.host found [%s]", uri);
-        ogs_free(p);
-        return NULL;
-    }
-
-    if (!yuarel.path) {
-        ogs_error("No http.path found [%s]", uri);
-        ogs_free(p);
-        return NULL;
-    }
-
-    path = ogs_strdup(yuarel.path);
-    ogs_assert(path);
-
-    ogs_free(p);
-    return path;
 }
 
 char *ogs_sbi_bitrate_to_string(uint64_t bitrate, int unit)

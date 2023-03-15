@@ -69,23 +69,6 @@ int amf_sbi_open(void)
     if (ogs_sbi_server_start_all(ogs_sbi_server_handler) != OGS_OK)
         return OGS_ERROR;
 
-    /* Build Subscription-Data */
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_AUSF, OGS_SBI_SERVICE_NAME_NAUSF_AUTH);
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_UDM, OGS_SBI_SERVICE_NAME_NUDM_UECM);
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_UDM, OGS_SBI_SERVICE_NAME_NUDM_SDM);
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_PCF, OGS_SBI_SERVICE_NAME_NPCF_AM_POLICY_CONTROL);
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_SMF, OGS_SBI_SERVICE_NAME_NSMF_PDUSESSION);
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_NSSF, OGS_SBI_SERVICE_NAME_NNSSF_NSSELECTION);
-
-    if (ogs_sbi_server_start_all(server_cb) != OGS_OK)
-        return OGS_ERROR;
-
     return OGS_OK;
 }
 

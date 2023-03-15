@@ -400,20 +400,6 @@ cJSON *OpenAPI_subscription_data_convertToJSON(OpenAPI_subscription_data_t *subs
     }
     }
 
-    if (subscription_data->requester_features) {
-    if (cJSON_AddStringToObject(item, "requesterFeatures", subscription_data->requester_features) == NULL) {
-        ogs_error("OpenAPI_subscription_data_convertToJSON() failed [requester_features]");
-        goto end;
-    }
-    }
-
-    if (subscription_data->nrf_supported_features) {
-    if (cJSON_AddStringToObject(item, "nrfSupportedFeatures", subscription_data->nrf_supported_features) == NULL) {
-        ogs_error("OpenAPI_subscription_data_convertToJSON() failed [nrf_supported_features]");
-        goto end;
-    }
-    }
-
 end:
     return item;
 }
@@ -720,24 +706,6 @@ OpenAPI_subscription_data_t *OpenAPI_subscription_data_parseFromJSON(cJSON *subs
     if (preferred_locality) {
     if (!cJSON_IsString(preferred_locality) && !cJSON_IsNull(preferred_locality)) {
         ogs_error("OpenAPI_subscription_data_parseFromJSON() failed [preferred_locality]");
-        goto end;
-    }
-    }
-
-    cJSON *requester_features = cJSON_GetObjectItemCaseSensitive(subscription_dataJSON, "requesterFeatures");
-
-    if (requester_features) {
-    if (!cJSON_IsString(requester_features)) {
-        ogs_error("OpenAPI_subscription_data_parseFromJSON() failed [requester_features]");
-        goto end;
-    }
-    }
-
-    cJSON *nrf_supported_features = cJSON_GetObjectItemCaseSensitive(subscription_dataJSON, "nrfSupportedFeatures");
-
-    if (nrf_supported_features) {
-    if (!cJSON_IsString(nrf_supported_features)) {
-        ogs_error("OpenAPI_subscription_data_parseFromJSON() failed [nrf_supported_features]");
         goto end;
     }
     }

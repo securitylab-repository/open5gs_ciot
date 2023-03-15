@@ -278,23 +278,6 @@ bool nrf_nnrf_handle_nf_status_subscribe(
         return NULL;
     }
 
-    if (SubscriptionData->requester_features) {
-        subscription_data->requester_features =
-            ogs_uint64_from_string(SubscriptionData->requester_features);
-
-        /* No need to send SubscriptionData->requester_features to the NF */
-        ogs_free(SubscriptionData->requester_features);
-        SubscriptionData->requester_features = NULL;
-    } else {
-        subscription_data->requester_features = 0;
-    }
-
-    OGS_SBI_FEATURES_SET(subscription_data->nrf_supported_features,
-            OGS_SBI_NNRF_NFM_SERVICE_MAP);
-    SubscriptionData->nrf_supported_features =
-        ogs_uint64_to_string(subscription_data->nrf_supported_features);
-    ogs_expect_or_return_val(SubscriptionData->nrf_supported_features, NULL);
-
     SubscrCond = SubscriptionData->subscr_cond;
     if (SubscrCond) {
         subscription_data->subscr_cond.nf_type = SubscrCond->nf_type;
@@ -636,7 +619,6 @@ bool nrf_nnrf_handle_nf_profile_retrieval(
     ogs_sbi_message_t sendmsg;
     ogs_sbi_response_t *response = NULL;
     ogs_sbi_nf_instance_t *nf_instance = NULL;
-    uint64_t supported_features = 0;
 
     ogs_assert(stream);
     ogs_assert(recvmsg);

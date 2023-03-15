@@ -847,11 +847,17 @@ int ogs_pfcp_setup_far_dupl_gtpu_node(ogs_pfcp_far_t *far) {
     if (!dupl_gnode) {
         dupl_gnode = ogs_gtp_node_add_by_ip(
             &ogs_gtp_self()->gtpu_peer_list, &dupl_ip, ogs_gtp_self()->gtpu_port);
-        ogs_expect_or_return_val(dupl_gnode, OGS_ERROR);
+        if (!dupl_gnode) {
+            ogs_error("ogs_gtp_node_add_by_ip() failed");
+            return OGS_ERROR;
+        }
 
         rv = ogs_gtp_connect(
                 ogs_gtp_self()->gtpu_sock, ogs_gtp_self()->gtpu_sock6, dupl_gnode);
-        ogs_expect_or_return_val(rv == OGS_OK, rv);
+        if (rv != OGS_OK) {
+            ogs_error("ogs_gtp_connect() failed");
+            return rv;
+        }
     }
 
     do { ogs_assert((far)); ogs_assert((dupl_gnode)); (far)->dupl_gnode = dupl_gnode; } while(0);

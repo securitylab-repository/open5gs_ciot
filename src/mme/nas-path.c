@@ -418,32 +418,6 @@ int nas_eps_send_detach_request(mme_ue_t *mme_ue)
     return rv;
 }
 
-int nas_eps_send_detach_request(mme_ue_t *mme_ue)
-{
-    int rv;
-    ogs_pkbuf_t *emmbuf = NULL;
-
-    ogs_debug("[%s] Detach request to UE", mme_ue->imsi_bcd);
-
-    if (mme_ue->t3422.pkbuf) {
-        emmbuf = mme_ue->t3422.pkbuf;
-        ogs_expect_or_return_val(emmbuf, OGS_ERROR);
-    } else {
-        emmbuf = emm_build_detach_request(mme_ue);
-        ogs_expect_or_return_val(emmbuf, OGS_ERROR);
-    }
-
-    mme_ue->t3422.pkbuf = ogs_pkbuf_copy(emmbuf);
-    ogs_expect_or_return_val(mme_ue->t3422.pkbuf, OGS_ERROR);
-    ogs_timer_start(mme_ue->t3422.timer, 
-            mme_timer_cfg(MME_TIMER_T3422)->duration);    
-
-    rv = nas_eps_send_to_downlink_nas_transport(mme_ue, emmbuf);
-    ogs_expect_or_return_val(rv == OGS_OK, rv);
-
-    return rv;
-}
-
 int nas_eps_send_detach_accept(mme_ue_t *mme_ue)
 {
     int rv;

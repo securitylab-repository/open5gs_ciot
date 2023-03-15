@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef OGS_DBI_TIMER_H
 #define OGS_DBI_TIMER_H
 
@@ -32,4 +31,3 @@ void ogs_timer_dbi_poll_change_stream(void *data);
 #endif
 
 #endif /* OGS_DBI_TIMER_H */
-

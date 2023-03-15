@@ -50,7 +50,6 @@ hss:
 #    use_mongodb_change_stream: true
 #
 parameter:
-#    use_mongodb_change_stream: true
 
 #
 #  o Maximum Number of UE

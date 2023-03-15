@@ -1557,15 +1557,6 @@ static int parse_json(ogs_sbi_message_t *message,
                 }
                 break;
 
-            CASE(OGS_SBI_RESOURCE_NAME_SDM_SUBSCRIPTIONS)
-                message->SDMSubscription =
-                    OpenAPI_sdm_subscription_parseFromJSON(item);
-                if (!message->SDMSubscription) {
-                    rv = OGS_ERROR;
-                    ogs_error("JSON parse error");
-                }
-                break;
-
             DEFAULT
                 rv = OGS_ERROR;
                 ogs_error("Unknown resource name [%s]",
@@ -2172,24 +2163,6 @@ static int parse_json(ogs_sbi_message_t *message,
                     }
                 } else {
                     ogs_error("HTTP ERROR Status : %d", message->res_status);
-                }
-                break;
-
-            CASE(OGS_SBI_RESOURCE_NAME_DEREG_NOTIFY)
-                message->DeregistrationData =
-                    OpenAPI_deregistration_data_parseFromJSON(item);
-                if (!message->DeregistrationData) {
-                    rv = OGS_ERROR;
-                    ogs_error("JSON parse error");
-                }
-                break;
-
-            CASE(OGS_SBI_RESOURCE_NAME_SDMSUBSCRIPTION_NOTIFY)
-                message->ModificationNotification =
-                    OpenAPI_modification_notification_parseFromJSON(item);
-                if (!message->ModificationNotification) {
-                    rv = OGS_ERROR;
-                    ogs_error("JSON parse error");
                 }
                 break;
 

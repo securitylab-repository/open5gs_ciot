@@ -1734,13 +1734,6 @@ ogs_sbi_xact_t *ogs_sbi_xact_add(
     }
     xact->discovery_option = discovery_option;
 
-    if (!discovery_option->num_of_service_names) {
-        ogs_sbi_discovery_option_add_service_names(
-                discovery_option,
-                (char *)ogs_sbi_service_type_to_name(service_type));
-    }
-    xact->discovery_option = discovery_option;
-
     xact->t_response = ogs_timer_add(
             ogs_app()->timer_mgr, ogs_timer_sbi_client_wait_expire, xact);
     if (!xact->t_response) {

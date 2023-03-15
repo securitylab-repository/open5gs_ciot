@@ -1508,12 +1508,8 @@ ogs_sbi_request_t *ogs_nnrf_disc_build_discover(
     ogs_sbi_message_t message;
     ogs_sbi_request_t *request = NULL;
 
-    OpenAPI_nf_type_e requester_nf_type = OpenAPI_nf_type_NULL;
-
     ogs_assert(target_nf_type);
 
-    ogs_assert(ogs_sbi_self()->nf_instance);
-    requester_nf_type = ogs_sbi_self()->nf_instance->nf_type;
     ogs_assert(requester_nf_type);
 
     memset(&message, 0, sizeof(message));

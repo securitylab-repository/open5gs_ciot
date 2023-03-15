@@ -1583,8 +1583,7 @@ static void mme_s6a_ula_cb(void *data, struct msg **msg)
 static void mme_s6a_pua_cb(void *data, struct msg **msg)
 {
     int ret;
-    struct disp_when data;
-
+    
     struct sess_state *sess_data = NULL;
     struct timespec ts;
     struct session *session;

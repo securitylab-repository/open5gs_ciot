@@ -54,9 +54,6 @@ int udr_sbi_open(void)
     if (ogs_sbi_server_start_all(ogs_sbi_server_handler) != OGS_OK)
         return OGS_ERROR;
 
-    if (ogs_sbi_server_start_all(server_cb) != OGS_OK)
-        return OGS_ERROR;
-
     return OGS_OK;
 }
 

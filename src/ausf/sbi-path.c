@@ -56,13 +56,6 @@ int ausf_sbi_open(void)
     if (ogs_sbi_server_start_all(ogs_sbi_server_handler) != OGS_OK)
         return OGS_ERROR;
 
-    /* Build Subscription-Data */
-    ogs_sbi_subscription_data_build_default(
-            OpenAPI_nf_type_UDM, OGS_SBI_SERVICE_NAME_NUDM_UEAU);
-
-    if (ogs_sbi_server_start_all(server_cb) != OGS_OK)
-        return OGS_ERROR;
-
     return OGS_OK;
 }
 

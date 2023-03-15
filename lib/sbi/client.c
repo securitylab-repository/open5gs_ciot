@@ -294,8 +294,6 @@ static char *add_params_to_uri(CURL *easy, char *uri, ogs_hash_t *params)
     return uri;
 }
 
-static void _connection_remove(connection_t *conn);
-
 static connection_t *connection_add(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data)
@@ -462,7 +460,7 @@ static connection_t *connection_add(
     return conn;
 }
 
-static void _connection_remove(connection_t *conn)
+static void connection_remove(connection_t *conn)
 {
     ogs_sbi_client_t *client = NULL;
 
@@ -501,15 +499,6 @@ static void connection_free(connection_t *conn)
     if (conn->timer)
         ogs_timer_delete(conn->timer);
 
-    if (conn->memory)
-        ogs_free(conn->memory);
-
-    if (conn->easy)
-        curl_easy_cleanup(conn->easy);
-
-    if (conn->timer)
-        ogs_timer_delete(conn->timer);
-
     if (conn->num_of_header) {
         for (i = 0; i < conn->num_of_header; i++)
             if (conn->headers[i])
@@ -522,22 +511,6 @@ static void connection_free(connection_t *conn)
         ogs_free(conn->method);
 
     ogs_pool_free(&connection_pool, conn);
-}
-
-static void connection_remove(connection_t *conn)
-{
-    ogs_sbi_client_t *client = NULL;
-
-    ogs_assert(conn);
-    client = conn->client;
-    ogs_assert(client);
-
-    ogs_list_remove(&client->connection_list, conn);
-
-    ogs_assert(client->multi);
-    curl_multi_remove_handle(client->multi, conn->easy);
-
-    _connection_remove(conn);
 }
 
 static void connection_remove_all(ogs_sbi_client_t *client)
@@ -667,7 +640,7 @@ static void check_multi_info(ogs_sbi_client_t *client)
     }
 }
 
-bool ogs_sbi_client_send_reqmem_persistent(
+bool ogs_sbi_client_send_request(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data)
 {
@@ -687,83 +660,6 @@ bool ogs_sbi_client_send_reqmem_persistent(
         ogs_error("connection_add() failed");
         return false;
     }
-
-    return rc;
-}
-
-bool ogs_sbi_scp_send_reqmem_persistent(
-        ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
-        ogs_sbi_request_t *request, void *data)
-{
-    ogs_sbi_nf_instance_t *scp_instance = NULL;
-    connection_t *conn = NULL;
-    char *apiroot = NULL;
-
-    ogs_assert(client);
-    ogs_assert(request);
-
-    scp_instance = ogs_sbi_self()->scp_instance;
-
-    if (scp_instance) {
-        /*
-         * In case of indirect communication using SCP,
-         * add 3gpp-Sbi-Target-apiRoot to HTTP header and
-         * change CLIENT instance to SCP.
-         */
-        apiroot = ogs_sbi_client_apiroot(client);
-        ogs_assert(apiroot);
-
-        ogs_sbi_header_set(request->http.headers,
-                OGS_SBI_CUSTOM_TARGET_APIROOT, apiroot);
-
-        ogs_free(apiroot);
-
-        client = scp_instance->client;
-        ogs_assert(client);
-    }
-
-    if (request->h.uri == NULL) {
-        /*
-         * Regardless of direct or indirect communication,
-         * if there is no URI, we automatically creates a URI
-         * with Client Address and request->h
-         */
-        request->h.uri = ogs_sbi_client_uri(client, &request->h);
-        ogs_assert(request->h.uri);
-
-        ogs_debug("[%s] %s", request->h.method, request->h.uri);
-
-    } else if (scp_instance) {
-        /*
-         * In case of indirect communication using SCP,
-         * If the full URI is already defined, change full URI to SCP as below.
-         *
-         * OLD: http://127.0.0.5:7777/nnrf-nfm/v1/nf-status-notify
-         * NEW: https://scp.open5gs.org/nnrf-nfm/v1/nf-status-notify
-         */
-        char *path = NULL;
-        char *old = NULL;
-
-        old = request->h.uri;
-
-        apiroot = ogs_sbi_client_apiroot(client);
-        ogs_assert(apiroot);
-
-        path = ogs_sbi_getpath_from_uri(request->h.uri);
-        ogs_assert(path);
-
-        request->h.uri = ogs_msprintf("%s/%s", apiroot, path);
-        ogs_assert(request->h.uri);
-
-        ogs_free(apiroot);
-        ogs_free(path);
-        ogs_free(old);
-
-        ogs_debug("[%s] %s", request->h.method, request->h.uri);
-    }
-
-    conn = connection_add(client, client_cb, request, data);
-    ogs_expect_or_return_val(conn, false);
 
     return true;
 }

@@ -82,12 +82,6 @@ ogs_sbi_client_t *ogs_sbi_client_find(
 void ogs_sbi_client_stop(ogs_sbi_client_t *client);
 void ogs_sbi_client_stop_all(void);
 
-void ogs_sbi_client_stop(ogs_sbi_client_t *client);
-void ogs_sbi_client_stop_all(void);
-
-bool ogs_sbi_client_send_reqmem_persistent(
-        ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
-        ogs_sbi_request_t *request, void *data);
 bool ogs_sbi_client_send_request(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data);
@@ -95,9 +89,6 @@ bool ogs_sbi_client_send_via_scp(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data);
 
-bool ogs_sbi_scp_send_reqmem_persistent(
-        ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
-        ogs_sbi_request_t *request, void *data);
 bool ogs_sbi_scp_send_request(
         ogs_sbi_client_t *client, ogs_sbi_client_cb_f client_cb,
         ogs_sbi_request_t *request, void *data);
