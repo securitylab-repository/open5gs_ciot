@@ -5,3 +5,9 @@ subprojects/prometheus-client-c
 subprojects/usrsctp
 
 webui/.next
+# Workspace config
+.vscode
+# Build folder
+builddir
+build
+install
