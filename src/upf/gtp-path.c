@@ -176,9 +176,10 @@ static void _gtpv1_tun_recv_common_cb(
     }
     ogs_pkbuf_push(recvbuf_dupl, ETHER_HDR_LEN);
     if (recvbuf_dupl) {
-            if (ogs_tun_write(fd, recvbuf_dupl) != OGS_OK)
-                ogs_warn("ogs_tun_write() for recvbuf_dupl failed");
-    
+        if (ogs_tun_write(fd, recvbuf_dupl) != OGS_OK)
+            ogs_warn("ogs_tun_write() for recvbuf_dupl failed");
+    }
+
     sess = upf_sess_find_by_ue_ip_address(recvbuf);
     if (!sess)
         goto cleanup;
