@@ -161,25 +161,38 @@ static void _gtpv1_tun_recv_common_cb(
             goto cleanup;
         }
         ogs_pkbuf_pull(recvbuf, ETHER_HDR_LEN);
-        ogs_pkbuf_pull(recvbuf_dupl, ETHER_HDR_LEN);
+        
+        // linh le - pull the pointer to IP layer
+        if (eth_type == ETHERTYPE_IP) {
+            ogs_pkbuf_pull(recvbuf_dupl, ETHER_HDR_LEN);
+        }
     }
 
     // linh le - after duplicate packet, replace destination ip with idsf and write to tunnel
     // idsf has iptable set to REDIRECT to listen on all port
     // use SO_ORIGINAL_DST to get original port
     char idsf_ipv4_str[] = "127.0.0.25";
+    uint32_t idsf_addr;
+    ogs_assert(OGS_OK == ogs_ipv4_from_string(&idsf_addr,idsf_ipv4_str));
+
+    ogs_assert(recvbuf_dupl);
+    ogs_assert(recvbuf_dupl->len);
+    ogs_assert(recvbuf_dupl->data);
     struct ip *ip_h = NULL;
     ip_h = (struct ip *)recvbuf_dupl->data;
     if (ip_h->ip_v == 4) {
         ip_h = (struct ip *)recvbuf_dupl->data;
-        ogs_ipv4_from_string(&(ip_h->ip_dst.s_addr),idsf_ipv4_str);
+        if (ip_h->ip_dst.s_addr!=idsf_addr && ip_h->ip_p==6)  {
+            ip_h->ip_dst.s_addr=idsf_addr;
+            ogs_pkbuf_push(recvbuf_dupl, ETHER_HDR_LEN);
+            if (recvbuf_dupl) {
+                if (ogs_tun_write(fd, recvbuf_dupl) != OGS_OK)
+                    ogs_warn("ogs_tun_write() for recvbuf_dupl failed");
+            }
+        }
     }
-    ogs_pkbuf_push(recvbuf_dupl, ETHER_HDR_LEN);
-    if (recvbuf_dupl) {
-        if (ogs_tun_write(fd, recvbuf_dupl) != OGS_OK)
-            ogs_warn("ogs_tun_write() for recvbuf_dupl failed");
-    }
-
+    
+    
     sess = upf_sess_find_by_ue_ip_address(recvbuf);
     if (!sess)
         goto cleanup;
@@ -617,34 +630,42 @@ static void _gtpv1_u_recv_cb(short when, ogs_socket_t fd, void *data)
             for (i = 0; i < pdr->num_of_urr; i++)
                 upf_sess_urr_acc_add(sess, pdr->urr[i], pkbuf->len, true);
 
-            // linh le - before add ETHER, make duplicate, replace IP with IDS's IP
-            // add ETHER then send dupl to tunnel
-            if (eth_type == ETHERTYPE_IP) {
-                ogs_pkbuf_t *pkbuf_dupl = NULL;
-                pkbuf_dupl = ogs_pkbuf_copy(pkbuf);
-                char idsf_ipv4_str[] = "127.0.0.25";
-                struct ip *ip_h = NULL;
-                ip_h = (struct ip *)pkbuf_dupl->data;
-                if (ip_h->ip_v == 4) {
+            if (dev->is_tap) {
+                
+                // linh le - before add ETHER, make duplicate, replace IP with IDS's IP
+                // add ETHER then send dupl to tunnel
+                if (eth_type == ETHERTYPE_IP) {
+                    ogs_pkbuf_t *pkbuf_dupl = NULL;
+                    pkbuf_dupl = ogs_pkbuf_copy(pkbuf);
+
+                    char idsf_ipv4_str[] = "127.0.0.25";
+                    uint32_t idsf_addr;
+                    ogs_assert(OGS_OK == ogs_ipv4_from_string(&idsf_addr,idsf_ipv4_str));
+                    
+                    struct ip *ip_h = NULL;
                     ip_h = (struct ip *)pkbuf_dupl->data;
-                    ogs_assert(OGS_OK ==
-                        ogs_ipv4_from_string(&(ip_h->ip_dst.s_addr),idsf_ipv4_str));
+                    if (ip_h->ip_v == 4) {
+                        ip_h = (struct ip *)pkbuf_dupl->data;
+                        if (ip_h->ip_dst.s_addr!=idsf_addr && ip_h->ip_p==6)  {
+                            ip_h->ip_dst.s_addr=idsf_addr;
+
+                            ogs_assert(eth_type);
+                            eth_type = htobe16(eth_type);
+                            ogs_pkbuf_push(pkbuf_dupl, sizeof(eth_type));
+                            memcpy(pkbuf_dupl->data, &eth_type, sizeof(eth_type));
+                            ogs_pkbuf_push(pkbuf_dupl, ETHER_ADDR_LEN);
+                            memcpy(pkbuf_dupl->data, proxy_mac_addr, ETHER_ADDR_LEN);
+                            ogs_pkbuf_push(pkbuf_dupl, ETHER_ADDR_LEN);
+                            memcpy(pkbuf_dupl->data, dev->mac_addr, ETHER_ADDR_LEN);
+
+                            if (pkbuf_dupl) {
+                                if (ogs_tun_write(fd, pkbuf_dupl) != OGS_OK)
+                                    ogs_warn("ogs_tun_write() for pkbuf_dupl failed");
+                            }
+                        }
+                    }
                 }
 
-                ogs_assert(eth_type);
-                eth_type = htobe16(eth_type);
-                ogs_pkbuf_push(pkbuf_dupl, sizeof(eth_type));
-                memcpy(pkbuf_dupl->data, &eth_type, sizeof(eth_type));
-                ogs_pkbuf_push(pkbuf_dupl, ETHER_ADDR_LEN);
-                memcpy(pkbuf_dupl->data, proxy_mac_addr, ETHER_ADDR_LEN);
-                ogs_pkbuf_push(pkbuf_dupl, ETHER_ADDR_LEN);
-                memcpy(pkbuf_dupl->data, dev->mac_addr, ETHER_ADDR_LEN);
-
-                if (ogs_tun_write(fd, pkbuf_dupl) != OGS_OK)
-                    ogs_warn("ogs_tun_write() for pkbuf_dupl failed");
-            }
-
-            if (dev->is_tap) {
                 ogs_assert(eth_type);
                 eth_type = htobe16(eth_type);
                 ogs_pkbuf_push(pkbuf, sizeof(eth_type));
