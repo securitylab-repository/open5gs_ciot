@@ -2,17 +2,17 @@
 
 ## Getting Started
 
-Please follow the [documentation](https://open5gs.org/open5gs/docs/) at [open5gs.org](https://open5gs.org/)!
+This branch contains IDS implementation for paper "5GC-IDS: Intrusion Detection System for CIoT as Network Function in 5G Core Network"
 
-## Sponsors
+Created IDS Network Function (implementation of IDS is in python at (https://github.com/NLag/IDSF_Python) for now)
 
-If you find Open5GS useful for work, please consider supporting this Open Source project by [Becoming a sponsor](https://github.com/sponsors/acetcom). To manage the funding transactions transparently, you can donate through [OpenCollective](https://opencollective.com/open5gs).
+Partially implemented supports for Duplication Parameters
 
-<p align="center">
-  <a target="_blank" href="https://open5gs.org/#sponsors">
-      <img alt="sponsors" src="https://open5gs.org/assets/img/sponsors.svg">
-  </a>
-</p>
+Partially implemented supports for CP forwarding with GTP-U header.
+
+Implemented packet duplication and forwarding of all packet in UP to IDS's ip:port.
+
+Follow the [documentation](https://open5gs.org/open5gs/docs/) at [open5gs.org](https://open5gs.org/)!
 
 ## Community
 
