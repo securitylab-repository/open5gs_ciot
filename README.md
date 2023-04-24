@@ -12,6 +12,7 @@ Partially implemented supports for CP forwarding with GTP-U header.
 
 Implemented packet duplication and forwarding of all packet in UP to IDS's ip:port.
 
+(main branch is created to following open5gs original git)
 Follow the [documentation](https://open5gs.org/open5gs/docs/) at [open5gs.org](https://open5gs.org/)!
 
 ## Community
