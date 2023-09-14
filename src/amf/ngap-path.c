@@ -40,7 +40,7 @@ int ngap_open(void)
     return OGS_OK;
 }
 
-void ngap_close()
+void ngap_close(void)
 {
     ogs_socknode_remove_all(&amf_self()->ngap_list);
     ogs_socknode_remove_all(&amf_self()->ngap_list6);
@@ -421,9 +421,6 @@ int ngap_send_paging(amf_ue_t *amf_ue)
         ogs_error("UE(amf-ue) context has already been removed");
         return OGS_NOTFOUND;
     }
-
-    ogs_assert(ogs_timer_running(
-                amf_ue->implicit_deregistration.timer) == false);
 
     ogs_list_for_each(&amf_self()->gnb_list, gnb) {
         for (i = 0; i < gnb->num_of_supported_ta_list; i++) {

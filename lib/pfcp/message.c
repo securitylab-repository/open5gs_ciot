@@ -20,7 +20,7 @@
 /*******************************************************************************
  * This file had been created by pfcp-tlv.py script v0.1.0
  * Please do not modify this file but regenerate it via script.
- * Created on: 2023-03-05 22:26:11.716006 by acetcom
+ * Created on: 2023-08-18 22:15:59.596820 by acetcom
  * from 29244-h71-modified.docx
  ******************************************************************************/
 
@@ -1546,10 +1546,10 @@ ogs_tlv_desc_t ogs_pfcp_tlv_desc_cp_pfcp_entity_ip_address =
 
 ogs_tlv_desc_t ogs_pfcp_tlv_desc_pfcpsereq_flags =
 {
-    OGS_TLV_VAR_STR,
+    OGS_TLV_UINT8,
     "PFCPSEReq-Flags",
     OGS_PFCP_PFCPSEREQ_FLAGS_TYPE,
-    0,
+    1,
     0,
     sizeof(ogs_pfcp_tlv_pfcpsereq_flags_t),
     { NULL }
@@ -4779,9 +4779,6 @@ ogs_pfcp_message_t *ogs_pfcp_parse_msg(ogs_pkbuf_t *pkbuf)
             ogs_expect(rv == OGS_OK);
             break;
         case OGS_PFCP_VERSION_NOT_SUPPORTED_RESPONSE_TYPE:
-            rv = ogs_tlv_parse_msg(&pfcp_message->pfcp_version_not_supported_response,
-                    &ogs_pfcp_msg_desc_pfcp_version_not_supported_response, pkbuf, OGS_TLV_MODE_T2_L2);
-            ogs_expect(rv == OGS_OK);
             break;
         case OGS_PFCP_NODE_REPORT_REQUEST_TYPE:
             rv = ogs_tlv_parse_msg(&pfcp_message->pfcp_node_report_request,
@@ -4834,9 +4831,6 @@ ogs_pfcp_message_t *ogs_pfcp_parse_msg(ogs_pkbuf_t *pkbuf)
             ogs_expect(rv == OGS_OK);
             break;
         case OGS_PFCP_SESSION_DELETION_REQUEST_TYPE:
-            rv = ogs_tlv_parse_msg(&pfcp_message->pfcp_session_deletion_request,
-                    &ogs_pfcp_msg_desc_pfcp_session_deletion_request, pkbuf, OGS_TLV_MODE_T2_L2);
-            ogs_expect(rv == OGS_OK);
             break;
         case OGS_PFCP_SESSION_DELETION_RESPONSE_TYPE:
             rv = ogs_tlv_parse_msg(&pfcp_message->pfcp_session_deletion_response,

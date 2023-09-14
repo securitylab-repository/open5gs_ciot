@@ -587,7 +587,7 @@ void amf_state_operational(ogs_fsm_t *s, amf_event_t *e)
             ogs_assert(nf_instance);
             ogs_assert(OGS_FSM_STATE(&nf_instance->sm));
 
-            ogs_sbi_self()->nf_instance->load = get_ran_ue_load();
+            ogs_sbi_self()->nf_instance->load = amf_instance_get_load();
 
             ogs_fsm_dispatch(&nf_instance->sm, e);
             if (OGS_FSM_CHECK(&nf_instance->sm, ogs_sbi_nf_state_exception))
@@ -690,6 +690,14 @@ void amf_state_operational(ogs_fsm_t *s, amf_event_t *e)
                 sess = amf_sess_cycle(sess);
                 if (!sess) {
                     ogs_error("Session has already been removed");
+                    break;
+                }
+
+                amf_ue = sess->amf_ue;
+                ogs_assert(amf_ue);
+                amf_ue = amf_ue_cycle(amf_ue);
+                if (!amf_ue) {
+                    ogs_error("UE(amf_ue) Context has already been removed");
                     break;
                 }
 

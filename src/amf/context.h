@@ -111,8 +111,6 @@ typedef struct amf_context_s {
     ogs_hash_t      *suci_hash;     /* hash table (SUCI) */
     ogs_hash_t      *supi_hash;     /* hash table (SUPI) */
 
-    OGS_POOL(m_tmsi, amf_m_tmsi_t); /* M-TMSI Pool */
-
     uint16_t        ngap_port;      /* Default NGAP Port */
 
     ogs_list_t      ngap_list;      /* AMF NGAP IPv4 Server List */
@@ -132,6 +130,7 @@ typedef struct amf_gnb_s {
     ogs_fsm_t       sm;         /* A state machine */
 
     uint32_t        gnb_id;     /* gNB_ID received from gNB */
+    ogs_plmn_id_t   plmn_id;    /* gNB PLMN-ID received from gNB */
     ogs_sctp_sock_t sctp;       /* SCTP socket */
 
     struct {
@@ -490,6 +489,19 @@ typedef struct amf_sess_s {
     bool n1_released;
     bool n2_released;
 
+    /*
+     * To check if Reactivation Request has been used.
+     *
+     * During the PFCP recovery process,
+     * when a Reactivation Request is sent to PDU session release command,
+     * the UE simultaneously sends PDU session release complete and
+     * PDU session establishment request.
+     *
+     * In this case, old_gsm_type is PDU session release command and
+     * current_gsm_type is PDU session establishment request.
+     */
+    uint8_t old_gsm_type, current_gsm_type;
+
     struct {
         ogs_pkbuf_t *pdu_session_resource_setup_request;
         ogs_pkbuf_t *pdu_session_resource_modification_command;
@@ -637,15 +649,6 @@ typedef struct amf_sess_s {
     ogs_s_nssai_t mapped_hplmn;
     char *dnn;
 
-    /* Save Protocol Configuration Options from UE */
-    struct {
-        uint8_t length;
-        uint8_t *buffer;
-    } ue_pco; 
-
-    /* Save Protocol Configuration Options from PGW */
-    ogs_tlv_octet_t pgw_pco;
-
 } amf_sess_t;
 
 void amf_context_init(void);
@@ -684,7 +687,6 @@ void amf_ue_fsm_init(amf_ue_t *amf_ue);
 void amf_ue_fsm_fini(amf_ue_t *amf_ue);
 
 amf_ue_t *amf_ue_find_by_guti(ogs_nas_5gs_guti_t *nas_guti);
-amf_ue_t *amf_ue_find_by_teid(uint32_t teid);
 amf_ue_t *amf_ue_find_by_suci(char *suci);
 amf_ue_t *amf_ue_find_by_supi(char *supi);
 
@@ -759,9 +761,10 @@ amf_sess_t *amf_sess_add(amf_ue_t *amf_ue, uint8_t psi);
     do { \
         ogs_sbi_object_t *sbi_object = NULL; \
         ogs_assert(__sESS); \
-        sbi_object = &sess->sbi; \
+        sbi_object = &(__sESS)->sbi; \
         ogs_assert(sbi_object); \
         \
+        ogs_error("AMF_SESS_CLEAR"); \
         if (ogs_list_count(&sbi_object->xact_list)) { \
             ogs_error("SBI running [%d]", \
                     ogs_list_count(&sbi_object->xact_list)); \
@@ -809,7 +812,6 @@ int amf_find_served_tai(ogs_5gs_tai_t *nr_tai);
 ogs_s_nssai_t *amf_find_s_nssai(
         ogs_plmn_id_t *served_plmn_id, ogs_s_nssai_t *s_nssai);
 
-int amf_m_tmsi_pool_generate(void);
 amf_m_tmsi_t *amf_m_tmsi_alloc(void);
 int amf_m_tmsi_free(amf_m_tmsi_t *tmsi);
 
@@ -820,7 +822,7 @@ void amf_clear_subscribed_info(amf_ue_t *amf_ue);
 
 bool amf_update_allowed_nssai(amf_ue_t *amf_ue);
 bool amf_ue_is_rat_restricted(amf_ue_t *amf_ue);
-int get_ran_ue_load(void);
+int amf_instance_get_load(void);
 
 #ifdef __cplusplus
 }

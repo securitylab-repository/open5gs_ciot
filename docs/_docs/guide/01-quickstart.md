@@ -68,7 +68,7 @@ With the exception of the SMF and UPF, all config files for the 5G SA core funct
 
 **Note:** Package managers can be used to install Open5GS in *Debian/Ubuntu and openSUSE* environments (for major and minor builds). *CentOS, Fedora, and Mac OSX* require you to [build with source code]({{ site.url }}{{ site.baseurl }}/docs/guide/02-building-open5gs-from-sources).
 {: .notice--warning}
-**Note:** Nighly builds are offered by [Osmocom](https://osmocom.org) on [OBS](https://build.opensuse.org/package/show/network:osmocom:nightly/open5gs). Scroll down to use a nightly build package.
+**Note:** Nighly builds are offered by [Osmocom](https://osmocom.org) on [OBS](https://obs.osmocom.org/package/show/osmocom:nightly/open5gs). Scroll down to use a nightly build package.
 {: .notice--warning}
 
 #### Getting MongoDB
@@ -78,14 +78,15 @@ Import the public key used by the package management system.
 
 ```bash
 $ sudo apt update
-$ sudo apt install wget gnupg
-$ wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+$ sudo apt install gnupg
+$ curl -fsSL https://pgp.mongodb.com/server-6.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg --dearmor
 ```
 
 Create the list file /etc/apt/sources.list.d/mongodb-org-6.0.list for your version of Ubuntu.
 
+On ubuntu 22.04 (Jammy)
 ```bash
-$ echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+$ echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
 ```
 
 Install the MongoDB packages.
@@ -187,10 +188,19 @@ The WebUI allows you to interactively edit subscriber data. While it is not esse
 1. *Debian and Ubuntu* based Linux distributions can install [Node.js](https://nodejs.org/) as follows:
 
     ```bash
+    # Download and import the Nodesource GPG key
     $ sudo apt update
-    $ sudo apt install curl
-    $ curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    $ sudo apt install nodejs
+    $ sudo apt install -y ca-certificates curl gnupg
+    $ sudo mkdir -p /etc/apt/keyrings
+    $ curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+
+    # Create deb repository
+    $ NODE_MAJOR=20
+    $ echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+
+    # Run Update and Install
+    $ sudo apt update
+    $ sudo apt install nodejs -y
     ```
 
 2. To install [Node.js](https://nodejs.org/) on *openSUSE*, run the following:

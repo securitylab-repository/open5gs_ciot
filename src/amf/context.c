@@ -29,6 +29,8 @@ static OGS_POOL(amf_ue_pool, amf_ue_t);
 static OGS_POOL(ran_ue_pool, ran_ue_t);
 static OGS_POOL(amf_sess_pool, amf_sess_t);
 
+static OGS_POOL(m_tmsi_pool, amf_m_tmsi_t);
+
 static int context_initialized = 0;
 
 static int num_of_ran_ue = 0;
@@ -60,7 +62,8 @@ void amf_context_init(void)
     ogs_pool_init(&amf_ue_pool, ogs_app()->max.ue);
     ogs_pool_init(&ran_ue_pool, ogs_app()->max.ue);
     ogs_pool_init(&amf_sess_pool, ogs_app()->pool.sess);
-    ogs_pool_init(&self.m_tmsi, ogs_app()->max.ue*2);
+    ogs_pool_init(&m_tmsi_pool, ogs_app()->max.ue*2);
+    ogs_pool_random_id_generate(&m_tmsi_pool);
 
     ogs_list_init(&self.gnb_list);
     ogs_list_init(&self.amf_ue_list);
@@ -98,7 +101,7 @@ void amf_context_final(void)
     ogs_assert(self.supi_hash);
     ogs_hash_destroy(self.supi_hash);
 
-    ogs_pool_final(&self.m_tmsi);
+    ogs_pool_final(&m_tmsi_pool);
     ogs_pool_final(&amf_sess_pool);
     ogs_pool_final(&amf_ue_pool);
     ogs_pool_final(&ran_ue_pool);
@@ -169,13 +172,18 @@ static int amf_context_validation(void)
     }
 
     if (self.num_of_ciphering_order == 0) {
-        ogs_error("no amf.security.ciphering_order in '%s'",
+        ogs_error("No amf.security.ciphering_order in '%s'",
                 ogs_app()->file);
         return OGS_ERROR;
     }
     if (ogs_nas_gprs_timer_from_sec(&gprs_timer, self.time.t3502.value) !=
         OGS_OK) {
         ogs_error("Not support GPRS Timer 2 [%d]", (int)self.time.t3502.value);
+        return OGS_ERROR;
+    }
+    if (!self.time.t3512.value) {
+        ogs_error("No amf.time.t3512.value in '%s'",
+                ogs_app()->file);
         return OGS_ERROR;
     }
     if (ogs_nas_gprs_timer_3_from_sec(&gprs_timer, self.time.t3512.value) !=
@@ -1021,6 +1029,8 @@ int amf_context_parse_config(void)
                         } else
                             ogs_warn("unknown key `%s`", t3512_key);
                     }
+                } else if (!strcmp(time_key, "t3412")) {
+                    /* handle config in mme */
                 } else if (!strcmp(time_key, "nf_instance")) {
                     /* handle config in app library */
                 } else if (!strcmp(time_key, "subscription")) {
@@ -1203,7 +1213,7 @@ void amf_gnb_remove(amf_gnb_t *gnb)
             ogs_list_count(&self.gnb_list));
 }
 
-void amf_gnb_remove_all()
+void amf_gnb_remove_all(void)
 {
     amf_gnb_t *gnb = NULL, *next_gnb = NULL;
 
@@ -1641,6 +1651,9 @@ void amf_ue_remove(amf_ue_t *amf_ue)
     ogs_timer_delete(amf_ue->implicit_deregistration.timer);
 
     /* Free SBI object memory */
+    if (ogs_list_count(&amf_ue->sbi.xact_list))
+        ogs_error("UE transaction [%d]",
+                ogs_list_count(&amf_ue->sbi.xact_list));
     ogs_sbi_object_free(&amf_ue->sbi);
 
     amf_ue_deassociate(amf_ue);
@@ -1651,7 +1664,7 @@ void amf_ue_remove(amf_ue_t *amf_ue)
             ogs_list_count(&self.amf_ue_list));
 }
 
-void amf_ue_remove_all()
+void amf_ue_remove_all(void)
 {
     amf_ue_t *amf_ue = NULL, *next = NULL;;
 
@@ -1692,11 +1705,6 @@ amf_ue_t *amf_ue_find_by_guti(ogs_nas_5gs_guti_t *guti)
 
     return (amf_ue_t *)ogs_hash_get(
             self.guti_ue_hash, guti, sizeof(ogs_nas_5gs_guti_t));
-}
-
-amf_ue_t *amf_ue_find_by_teid(uint32_t teid)
-{
-    return ogs_pool_find(&amf_ue_pool, teid);
 }
 
 amf_ue_t *amf_ue_find_by_suci(char *suci)
@@ -1749,6 +1757,12 @@ amf_ue_t *amf_ue_find_by_message(ogs_nas_5gs_message_t *message)
             mobile_identity_suci =
                 (ogs_nas_5gs_mobile_identity_suci_t *)mobile_identity->buffer;
 
+            if (mobile_identity_suci->h.supi_format !=
+                    OGS_NAS_5GS_SUPI_FORMAT_IMSI) {
+                ogs_error("Not implemented SUPI format [%d]",
+                    mobile_identity_suci->h.supi_format);
+                return NULL;
+            }
             if (mobile_identity_suci->protection_scheme_id !=
                     OGS_PROTECTION_SCHEME_NULL &&
                 mobile_identity_suci->protection_scheme_id !=
@@ -2079,6 +2093,9 @@ void amf_sess_remove(amf_sess_t *sess)
     ogs_list_remove(&sess->amf_ue->sess_list, sess);
 
     /* Free SBI object memory */
+    if (ogs_list_count(&sess->sbi.xact_list))
+        ogs_error("Session transaction [%d]",
+                ogs_list_count(&sess->sbi.xact_list));
     ogs_sbi_object_free(&sess->sbi);
 
     if (sess->sm_context_ref)
@@ -2107,9 +2124,6 @@ void amf_sess_remove(amf_sess_t *sess)
         ogs_free(sess->nssf.nrf.id);
     if (sess->nssf.nrf.client)
         ogs_sbi_client_remove(sess->nssf.nrf.client);
-
-    OGS_NAS_CLEAR_DATA(&sess->ue_pco);
-    OGS_TLV_CLEAR_DATA(&sess->pgw_pco);
 
     ogs_pool_free(&amf_sess_pool, sess);
 
@@ -2184,11 +2198,19 @@ void amf_sbi_select_nf(
                         false)
                 continue;
 
-            nf_info = ogs_sbi_nf_info_find(
-                        &nf_instance->nf_info_list, nf_instance->nf_type);
-            if (nf_info) {
-                if (nf_instance->nf_type == OpenAPI_nf_type_SMF &&
-                    check_smf_info(nf_info, sess) == false)
+            if ((nf_instance->nf_type == OpenAPI_nf_type_SMF) &&
+                (ogs_list_count(&nf_instance->nf_info_list) > 0)) {
+
+                ogs_list_for_each(&nf_instance->nf_info_list, nf_info) {
+                    if (nf_info->nf_type != nf_instance->nf_type)
+                        continue;
+                    if (check_smf_info(nf_info, sess) == false)
+                        continue;
+
+                    break;
+                }
+
+                if (!nf_info)
                     continue;
             }
 
@@ -2362,17 +2384,18 @@ ogs_s_nssai_t *amf_find_s_nssai(
     return NULL;
 }
 
-int amf_m_tmsi_pool_generate()
+#if 0 /* DEPRECATED */
+int amf_m_tmsi_pool_generate(void)
 {
-    int i, j;
+    int j;
     int index = 0;
 
     ogs_trace("M-TMSI Pool try to generate...");
-    for (i = 0; index < ogs_app()->max.ue*2; i++) {
+    while (index < ogs_app()->max.ue*2) {
         amf_m_tmsi_t *m_tmsi = NULL;
         int conflict = 0;
 
-        m_tmsi = &self.m_tmsi.array[index];
+        m_tmsi = &m_tmsi_pool.array[index];
         ogs_assert(m_tmsi);
         *m_tmsi = ogs_random32();
 
@@ -2381,10 +2404,10 @@ int amf_m_tmsi_pool_generate()
         *m_tmsi &= 0xff00ffff;
 
         for (j = 0; j < index; j++) {
-            if (*m_tmsi == self.m_tmsi.array[j]) {
+            if (*m_tmsi == m_tmsi_pool.array[j]) {
                 conflict = 1;
                 ogs_trace("[M-TMSI CONFLICT]  %d:0x%x == %d:0x%x",
-                        index, *m_tmsi, j, self.m_tmsi.array[j]);
+                        index, *m_tmsi, j, m_tmsi_pool.array[j]);
                 break;
             }
         }
@@ -2394,18 +2417,40 @@ int amf_m_tmsi_pool_generate()
 
         index++;
     }
-    self.m_tmsi.size = index;
+    m_tmsi_pool.size = index;
     ogs_trace("M-TMSI Pool generate...done");
 
     return OGS_OK;
 }
+#endif
 
-amf_m_tmsi_t *amf_m_tmsi_alloc()
+amf_m_tmsi_t *amf_m_tmsi_alloc(void)
 {
     amf_m_tmsi_t *m_tmsi = NULL;
 
-    ogs_pool_alloc(&self.m_tmsi, &m_tmsi);
+    ogs_pool_alloc(&m_tmsi_pool, &m_tmsi);
     ogs_assert(m_tmsi);
+
+    /* TS23.003
+     * 2.8.2.1.2 Mapping in the UE
+     *
+     * E-UTRAN <M-TMSI> maps as follows:
+     * - 6 bits of the E-UTRAN <M-TMSI> starting at bit 29 and down to bit 24
+     * are mapped into bit 29 and down to bit 24 of the GERAN/UTRAN <P-TMSI>;
+     * - 16 bits of the E-UTRAN <M-TMSI> starting at bit 15 and down to bit 0
+     * are mapped into bit 15 and down to bit 0 of the GERAN/UTRAN <P-TMSI>;
+     * - and the remaining 8 bits of the E-UTRAN <M-TMSI> are
+     * mapped into the 8 Most Significant Bits of the <P-TMSI signature> field.
+     *
+     * The UE shall fill the remaining 2 octets of the <P-TMSI signature>
+     * according to clauses 9.1.1, 9.4.1, 10.2.1, or 10.5.1
+     * of 3GPP TS.33.401 [89] , as appropriate, for RAU/Attach procedures
+     */
+
+    ogs_assert(*m_tmsi <= 0x003fffff);
+
+    *m_tmsi = ((*m_tmsi & 0xffff) | ((*m_tmsi & 0x003f0000) << 8));
+    *m_tmsi |= 0xc0000000;
 
     return m_tmsi;
 }
@@ -2413,7 +2458,10 @@ amf_m_tmsi_t *amf_m_tmsi_alloc()
 int amf_m_tmsi_free(amf_m_tmsi_t *m_tmsi)
 {
     ogs_assert(m_tmsi);
-    ogs_pool_free(&self.m_tmsi, m_tmsi);
+
+    /* Restore M-TMSI by Issue #2307 */
+    *m_tmsi &= 0x003fffff;
+    ogs_pool_free(&m_tmsi_pool, m_tmsi);
 
     return OGS_OK;
 }
@@ -2482,7 +2530,7 @@ static void stats_remove_ran_ue(void)
     ogs_info("[Removed] Number of gNB-UEs is now %d", num_of_ran_ue);
 }
 
-int get_ran_ue_load()
+int amf_instance_get_load(void)
 {
     return (((ogs_pool_size(&ran_ue_pool) -
             ogs_pool_avail(&ran_ue_pool)) * 100) /
@@ -2587,10 +2635,80 @@ static bool check_smf_info_nr_tai(
     return false;
 }
 
+/*
+ * Issues #2482
+ *
+ * Changed to that registration can be accepted only
+ * when the UE slice is available in the RAN slice.
+ *
+ * TS23.502
+ * 4.2.2 Registration Management procedures
+ * 4.2.2.2 Registration procedures
+ * 4.2.2.2.2 General Registration
+ *
+ * 21. ...
+ * If the Requested NSSAI does not include S-NSSAIs which map to S-NSSAIs
+ * of the HPLMN subject to Network Slice-Specific Authentication and
+ * Authorization and the AMF determines that no S-NSSAI can be provided
+ * in the Allowed NSSAI for the UE in the current UE's Tracking Area and
+ * if no default S-NSSAI(s) not yet involved in the current UE Registration
+ * procedure could be further considered, the AMF shall reject the UE
+ * Registration and shall include in the rejection message the list
+ * of Rejected S-NSSAIs, each of them with the appropriate rejection
+ * cause value.
+ */
+static bool gnb_ta_is_supported(
+        amf_gnb_t *gnb,
+        ogs_plmn_id_t *plmn_id, ogs_uint24_t tac, ogs_s_nssai_t *s_nssai)
+{
+    int i, j, k;
+
+    ogs_assert(gnb);
+    ogs_assert(plmn_id);
+
+    for (i = 0; i < gnb->num_of_supported_ta_list; i++) {
+        if (gnb->supported_ta_list[i].tac.v != tac.v)
+            continue;
+
+        for (j = 0; j < gnb->supported_ta_list[i].num_of_bplmn_list; j++) {
+            if (memcmp(&gnb->supported_ta_list[i].bplmn_list[j].plmn_id,
+                        plmn_id, sizeof(*plmn_id)) != 0)
+                continue;
+
+            for (k = 0;
+                    k < gnb->supported_ta_list[i].bplmn_list[j].num_of_s_nssai;
+                    k++) {
+                if (gnb->supported_ta_list[i].bplmn_list[j].s_nssai[k].sst ==
+                        s_nssai->sst &&
+                    gnb->supported_ta_list[i].bplmn_list[j].s_nssai[k].sd.v ==
+                        s_nssai->sd.v)
+                    return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+
 bool amf_update_allowed_nssai(amf_ue_t *amf_ue)
 {
-    int i;
+    int i, j, k;
+    amf_gnb_t *gnb = NULL;
+    ran_ue_t *ran_ue = NULL;
+
     ogs_assert(amf_ue);
+    ran_ue = ran_ue_cycle(amf_ue->ran_ue);
+    if (!ran_ue) {
+        ogs_error("[%s] RAN-NG Context has already been removed",
+                    amf_ue->supi);
+        return false;
+    }
+    gnb = amf_gnb_cycle(ran_ue->gnb);
+    if (!gnb) {
+        ogs_error("gNB has already been removed");
+        return false;
+    }
 
     /*
      * TS23.501
@@ -2683,10 +2801,19 @@ bool amf_update_allowed_nssai(amf_ue_t *amf_ue)
             ogs_nas_rejected_s_nssai_t *rejected =
                     &amf_ue->rejected_nssai.
                         s_nssai[amf_ue->rejected_nssai.num_of_s_nssai];
+            bool ta_supported = false;
+
+
             slice = ogs_slice_find_by_s_nssai(
                     amf_ue->slice, amf_ue->num_of_slice,
                     (ogs_s_nssai_t *)requested);
-            if (slice) {
+            if (slice)
+                ta_supported = gnb_ta_is_supported(gnb,
+                        &amf_ue->nr_tai.plmn_id, amf_ue->nr_tai.tac,
+                        &slice->s_nssai);
+
+            if (ta_supported == true) {
+
                 allowed->sst = requested->sst;
                 allowed->sd.v = requested->sd.v;
                 allowed->mapped_hplmn_sst = requested->mapped_hplmn_sst;
@@ -2718,13 +2845,18 @@ bool amf_update_allowed_nssai(amf_ue_t *amf_ue)
                 &amf_ue->allowed_nssai.
                     s_nssai[amf_ue->allowed_nssai.num_of_s_nssai];
 
-            if (slice->default_indicator == true) {
+            if (slice->default_indicator == true &&
+                gnb_ta_is_supported(gnb,
+                    &amf_ue->nr_tai.plmn_id, amf_ue->nr_tai.tac,
+                    &slice->s_nssai) == true) {
+
                 allowed->sst = slice->s_nssai.sst;
                 allowed->sd.v = slice->s_nssai.sd.v;
                 allowed->mapped_hplmn_sst = 0;
                 allowed->mapped_hplmn_sd.v = OGS_S_NSSAI_NO_SD_VALUE;
 
                 amf_ue->allowed_nssai.num_of_s_nssai++;
+
             }
         }
     }
@@ -2755,6 +2887,29 @@ bool amf_update_allowed_nssai(amf_ue_t *amf_ue)
             ogs_error("        S_NSSAI[SST:%d SD:0x%x]",
                     amf_ue->requested_nssai.s_nssai[i].sst,
                     amf_ue->requested_nssai.s_nssai[i].sd.v);
+        }
+
+        ogs_error("    (gNB) Number of TA List [%d]", gnb->num_of_supported_ta_list);
+        for (i = 0; i < gnb->num_of_supported_ta_list; i++) {
+            ogs_error("        TAC:%d", gnb->supported_ta_list[i].tac.v);
+            ogs_error("        Number of BPLMN List [%d]",
+                    gnb->supported_ta_list[i].num_of_bplmn_list);
+            for (j = 0; j < gnb->supported_ta_list[i].num_of_bplmn_list; j++) {
+                ogs_plmn_id_t *plmn_id =
+                    &gnb->supported_ta_list[i].bplmn_list[j].plmn_id;
+                ogs_error("        PLMN_ID[MCC:%d MNC:%d]",
+                        ogs_plmn_id_mcc(plmn_id), ogs_plmn_id_mnc(plmn_id));
+                ogs_error("        Number of S_NSSAI [%d]",
+                        gnb->supported_ta_list[i].bplmn_list[j].num_of_s_nssai);
+                for (k = 0; k <
+                        gnb->supported_ta_list[i].bplmn_list[j].num_of_s_nssai;
+                        k++) {
+                    ogs_s_nssai_t *s_nssai =
+                        &gnb->supported_ta_list[i].bplmn_list[j].s_nssai[k];
+                    ogs_error("        S_NSSAI[SST:%d SD:0x%x]",
+                            s_nssai->sst, s_nssai->sd.v);
+                }
+            }
         }
 
         return false;

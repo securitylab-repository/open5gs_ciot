@@ -257,10 +257,11 @@ typedef struct test_pdu_session_establishment_param_s {
 typedef struct test_pdn_connectivity_param_s {
     union {
         struct {
-        ED6(uint8_t eit:1;,
+        ED7(uint8_t eit:1;,
             uint8_t eit_no_required:1;,
             uint8_t apn:1;,
             uint8_t pco:1;,
+            uint8_t epco:1;,
             uint8_t spare:1;,
             uint8_t request_type:3;)
         };
@@ -272,7 +273,7 @@ typedef struct test_esm_information_param_s {
     union {
         struct {
         ED8(uint8_t pco:1;,
-            uint8_t spare1:1;,
+            uint8_t epco:1;,
             uint8_t spare2:1;,
             uint8_t spare3:1;,
             uint8_t spare4:1;,
@@ -476,6 +477,13 @@ typedef struct test_bearer_s {
 
     uint32_t        sgw_s1u_teid;   /* SGW-S1U TEID */
     ogs_ip_t        sgw_s1u_ip;     /* SGW-S1U IPv4/IPv6 */
+    struct {
+        /* Indirect Forwarding */
+        uint32_t dl_teid;
+        ogs_ip_t dl_ip;
+        uint32_t ul_teid;
+        ogs_ip_t ul_ip;
+    } handover;
 
     uint32_t        enb_s1u_teid;   /* eNB-S1U TEID */
     ogs_sockaddr_t  *enb_s1u_addr;  /* eNB-S1U IPv4 */

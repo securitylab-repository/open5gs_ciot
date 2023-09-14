@@ -57,7 +57,7 @@ void ogs_app_context_final(void)
     initialized = 0;
 }
 
-ogs_app_context_t *ogs_app()
+ogs_app_context_t *ogs_app(void)
 {
     return &self;
 }
@@ -76,13 +76,13 @@ static void recalculate_pool_size(void)
     self.pool.message = self.max.ue * POOL_NUM_PER_UE;
     self.pool.event = self.max.ue * POOL_NUM_PER_UE;
     self.pool.socket = self.max.ue * POOL_NUM_PER_UE;
-    self.pool.subscription = self.max.ue * POOL_NUM_PER_UE;
     self.pool.xact = self.max.ue * POOL_NUM_PER_UE;
     self.pool.stream = self.max.ue * POOL_NUM_PER_UE;
 
     self.pool.nf = self.max.peer;
 #define NF_SERVICE_PER_NF_INSTANCE 16
     self.pool.nf_service = self.pool.nf * NF_SERVICE_PER_NF_INSTANCE;
+    self.pool.subscription = self.pool.nf * NF_SERVICE_PER_NF_INSTANCE;
 
     self.pool.gtp_node = self.pool.nf;
     if (self.max.gtp_peer)
@@ -352,12 +352,8 @@ int ogs_app_context_parse_config(void)
                         ogs_yaml_iter_bool(&parameter_iter);
                 } else if (!strcmp(parameter_key,
                             "use_mongodb_change_stream")) {
-#if MONGOC_MAJOR_VERSION >= 1 && MONGOC_MINOR_VERSION >= 9
                     self.use_mongodb_change_stream = 
                         ogs_yaml_iter_bool(&parameter_iter);
-#else
-                    self.use_mongodb_change_stream = false;
-#endif
                 } else
                     ogs_warn("unknown key `%s`", parameter_key);
             }

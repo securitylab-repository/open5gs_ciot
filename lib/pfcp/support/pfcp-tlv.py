@@ -519,6 +519,7 @@ type_list["Paging Policy Indicator"]["size"] = 1            # Type 158
 type_list["PFCPSRReq-Flags"]["size"] = 1                    # Type 161
 type_list["PFCPAUReq-Flags"]["size"] = 1                    # Type 162
 type_list["Quota Validity Time"]["size"] = 4                # Type 181
+type_list["PFCPSEReq-Flags"]["size"] = 1                    # Type 186
 type_list["Data Status"]["size"] = 1                        # Type 260
 
 f = open(outdir + 'message.h', 'w')
@@ -839,9 +840,10 @@ f.write("""ogs_pfcp_message_t *ogs_pfcp_parse_msg(ogs_pkbuf_t *pkbuf)
 for (k, v) in sorted_msg_list:
     if "ies" in msg_list[k]:
         f.write("        case OGS_%s_TYPE:\n" % v_upper(k))
-        f.write("            rv = ogs_tlv_parse_msg(&pfcp_message->%s,\n" % v_lower(k))
-        f.write("                    &ogs_pfcp_msg_desc_%s, pkbuf, OGS_TLV_MODE_T2_L2);\n" % v_lower(k))
-        f.write("            ogs_expect(rv == OGS_OK);\n")
+        if k != "PFCP Session Deletion Request" and k != "PFCP Version Not Supported Response":
+            f.write("            rv = ogs_tlv_parse_msg(&pfcp_message->%s,\n" % v_lower(k))
+            f.write("                    &ogs_pfcp_msg_desc_%s, pkbuf, OGS_TLV_MODE_T2_L2);\n" % v_lower(k))
+            f.write("            ogs_expect(rv == OGS_OK);\n")
         f.write("            break;\n")
 f.write("""        default:
             ogs_warn("Not implemented(type:%d)", pfcp_message->h.type);
